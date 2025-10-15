@@ -6,7 +6,7 @@ from datetime import datetime
 import streamlit as st
 
 from news_portal.config import RESULT_FILE, SUBTOPICS, TOPIC, NEWS_ARTICLE_COUNT
-from news_portal.graph import run_graph
+from news_portal.graph import run_graph # Load .env and map Streamlit secrets before imports that use env
 
 # Load .env early
 try:
@@ -15,30 +15,21 @@ try:
 except Exception:
     pass
 
-
 st.set_page_config(page_title="Cancer Health Care News Portal", layout="wide")
 st.title("🧬 Cancer Health Care News Portal")
 
-# -------- Session state --------
-if "results" not in st.session_state:
-    st.session_state["results"] = None
-if "error" not in st.session_state:
-    st.session_state["error"] = None
-if "active_menu" not in st.session_state:
-    st.session_state["active_menu"] = "Home"
-if "running" not in st.session_state:
-    st.session_state["running"] = False
-if "loaded_from_file" not in st.session_state:
-    st.session_state["loaded_from_file"] = False
-if "news_article_count" not in st.session_state:
-    st.session_state["news_article_count"] = NEWS_ARTICLE_COUNT
+# Session state
+if "results" not in st.session_state: st.session_state["results"] = None
+if "error" not in st.session_state: st.session_state["error"] = None
+if "active_menu" not in st.session_state: st.session_state["active_menu"] = "Home"
+if "running" not in st.session_state: st.session_state["running"] = False
+if "loaded_from_file" not in st.session_state: st.session_state["loaded_from_file"] = False
+if "news_article_count" not in st.session_state: st.session_state["news_article_count"] = NEWS_ARTICLE_COUNT
 
-# -------- Helpers --------
-def _read_results_file() -> tuple[dict | None, datetime | None]:
+def _read_results_file():
     try:
         if RESULT_FILE.exists():
-            text = RESULT_FILE.read_text()
-            data = json.loads(text)
+            data = json.loads(RESULT_FILE.read_text())
             ts = datetime.fromtimestamp(RESULT_FILE.stat().st_mtime)
             return data, ts
     except Exception as e:
@@ -75,6 +66,7 @@ def card_article(a: dict):
     st.markdown(
         f"**{a.get('title','(title)')}**  \n"
         f"[Open Link]({a.get('url','')})  \n"
+        f"*Source:* {a.get('source','?')}  \n"
         f"*Published:* {a.get('published_date','?')}  \n\n"
         f"{a.get('summary','(no summary)')}"
     )
@@ -101,19 +93,20 @@ def render_home(final: dict):
 def render_subtopic(final: dict, subtopic: str):
     st.subheader(f"📚 {subtopic}")
     ps = (final.get("per_subtopic", {}) or {}).get(subtopic, {}) or {}
+    st.markdown(f"#### News Articles ({len(ps.get('articles', []))})")
+    for a in ps.get("articles", []):
+        with st.container(border=True):
+            card_article(a)
+    st.markdown("---")
     st.markdown("#### Editorial")
     editorial = ps.get("editorial")
     if editorial:
         st.write(editorial)
     else:
-        st.info("Editorial not available for this sub-topic.")
-    st.markdown("---")
-    st.markdown(f"#### News Articles ({len(ps.get('articles', []))})")
-    for a in ps.get("articles", []):
-        with st.container(border=True):
-            card_article(a)
+        st.info("Editorial not available for this sub-topic.")    
+    
 
-# -------- Controls --------
+# Controls
 left, mid, right = st.columns([2, 2, 6])
 with left:
     st.button("Run Agents", type="primary", disabled=st.session_state["running"], on_click=run_agents)
@@ -125,10 +118,10 @@ with right:
         min_value=1, max_value=5, step=1,
         value=st.session_state["news_article_count"],
         key="news_article_count",
-        help="This controls how many articles the picker/editor pipeline selects per sub-topic."
+        help="Controls how many articles the picker/editor pipeline selects per sub-topic."
     )
 
-# Auto-load once on startup
+# Auto-load saved file on first render
 if st.session_state["results"] is None and not st.session_state["loaded_from_file"]:
     data, _ = _read_results_file()
     if data:
@@ -137,7 +130,7 @@ if st.session_state["results"] is None and not st.session_state["loaded_from_fil
 
 debug = st.toggle("Debug", value=False)
 
-# -------- Layout --------
+# Layout
 nav, content = st.columns([1, 3])
 
 with nav:
