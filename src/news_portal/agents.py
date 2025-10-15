@@ -19,14 +19,12 @@ def llm(model: str | None = None, temperature: float = 0.2) -> ChatOpenAI:
     return ChatOpenAI(model=model, temperature=temperature, api_key=api_key, base_url=base_url, organization=organization)
 
 
-# ----- Structured output schema for quality check -----
 class QualityAssessmentTD(TypedDict):
     keep: bool
     reason: str
     quality_score: float
 
 
-# ----- Prompts -----
 SUMMARY_PROMPT = ChatPromptTemplate.from_messages([
     ("system",
      "You are a precise medical/health editor. Summarize the article in a cohesive, neutral way using only facts from "
@@ -43,6 +41,18 @@ EDITORIAL_PROMPT = ChatPromptTemplate.from_messages([
      "Brief description/context: {description}\n\n"
      "Summaries of selected articles:\n{summaries}\n\n"
      "Write the editorial (≥2,000 words):")
+])
+
+EXPAND_EDITORIAL_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are a senior editor. Expand and refine the given editorial to meet or exceed 2,000 words "
+     "while preserving meaning, improving structure, and adding evidence/context as needed."),
+    ("human",
+     "Sub-topic: {subtopic}\n\n"
+     "Brief description/context: {description}\n\n"
+     "Article summaries:\n{summaries}\n\n"
+     "Current editorial (~{current_wc} words):\n{editorial}\n\n"
+     "Rewrite/expand to ≥ 2,000 words, coherent and well-structured:")
 ])
 
 MAJOR_EDITORIAL_PROMPT = ChatPromptTemplate.from_messages([
@@ -63,17 +73,4 @@ QUALITY_PROMPT = ChatPromptTemplate.from_messages([
      "Sub-topic: {subtopic}\n\nTitle: {title}\nSource: {source}\nDate: {date}\n\n"
      "First 1200 chars of content:\n{content}\n\n"
      "Assess now:")
-])
-
-# agents.py (append near other prompts)
-EXPAND_EDITORIAL_PROMPT = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are a senior editor. Expand and refine the given editorial to meet or exceed 2,000 words "
-     "while preserving meaning, improving structure, and adding evidence/context as needed."),
-    ("human",
-     "Sub-topic: {subtopic}\n\n"
-     "Brief description/context: {description}\n\n"
-     "Article summaries:\n{summaries}\n\n"
-     "Current editorial (~{current_wc} words):\n{editorial}\n\n"
-     "Rewrite/expand to >= 2,000 words, coherent and well-structured:")
 ])
