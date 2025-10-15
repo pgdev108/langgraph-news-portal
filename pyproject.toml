@@ -1,0 +1,35 @@
+[project]
+name = "langgraph-news_portal"
+version = "0.1.0"
+description = "Cancer Health Care News Portal"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "html2text>=2025.4.15",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.31",
+    "langchain-openai>=0.3.35",
+    "langgraph>=0.6.10",
+    "python-dotenv>=1.1.1",
+    "streamlit>=1.50.0",
+    "svlearn-bootcamp>=0.1.7",
+    "tiktoken>=0.12.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# If you also build sdists and want data included:
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    # ... other includes like README, pyproject.toml, etc.
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/news_portal"]
