@@ -237,34 +237,34 @@ def process_all_subtopics(state: PortalState) -> PortalState:
     
     subtopic_queries = {
         "Cancer Research & Prevention": [
-            f"Cancer research prevention news {current_date}", 
+            f"Cancer research prevention news {current_month}", 
             f"Cancer prevention population risk study {current_month}", 
             f"Cancer prevention guideline update latest",
-            f"Cancer research breakthrough {current_date}"
+            f"Cancer research breakthrough {current_month}"
         ],
         "Early Detection and Diagnosis": [
-            f"Early cancer detection diagnosis news {current_date}", 
+            f"Early cancer detection diagnosis news {current_month}", 
             f"Cancer screening biomarkers news {current_month}", 
             f"Radiology pathology cancer diagnosis update latest",
-            f"Cancer detection technology breakthrough {current_date}"
+            f"Cancer detection technology breakthrough {current_month}"
         ],
         "Cancer Drug Discovery and Development": [
-            f"Cancer drug discovery development news {current_date}", 
+            f"Cancer drug discovery development news {current_month}", 
             f"AI drug discovery oncology trial {current_month}", 
             f"Target identification oncology update latest",
-            f"Cancer drug breakthrough {current_date}"
+            f"Cancer drug breakthrough {current_month}"
         ],
         "Cancer Treatment Methods": [
-            f"Cancer treatment methods chemo regimen news {current_date}", 
+            f"Cancer treatment methods chemo regimen news {current_month}", 
             f"Oncology therapy selection guideline update {current_month}", 
             f"Radiotherapy immunotherapy news latest",
-            f"Cancer treatment breakthrough {current_date}"
+            f"Cancer treatment breakthrough {current_month}"
         ],
         "Precision Oncology": [
-            f"Precision oncology genomics EMR integration news {current_date}", 
+            f"Precision oncology genomics EMR integration news {current_month}", 
             f"Molecular tumor board news {current_month}", 
             f"Biomarker-driven therapy update latest",
-            f"Precision medicine cancer {current_date}"
+            f"Precision medicine cancer {current_month}"
         ],
     }
     
