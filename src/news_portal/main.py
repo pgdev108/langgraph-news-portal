@@ -47,28 +47,39 @@ def load_cached():
         st.toast("No saved results file found.", icon="⚠️")
 
 def run_agents():
+    import time
     st.session_state["running"] = True
     st.session_state["error"] = None
     try:
         with st.spinner("Running LangGraph agents..."):
+            start_time = time.time()
             out = run_graph(news_article_count=st.session_state["news_article_count"])
+            end_time = time.time()
+            total_time = end_time - start_time
+            
             st.session_state["results"] = out
             st.session_state["active_menu"] = "Home"
             st.session_state["loaded_from_file"] = False
+            
+            # Show completion message with timing
+            st.success(f"✅ Processing completed in {total_time:.1f} seconds ({total_time/60:.1f} minutes)!")
     except Exception as e:
         st.session_state["error"] = f"{e}\n\n{traceback.format_exc()}"
         st.session_state["results"] = None
     finally:
         st.session_state["running"] = False
-        st.rerun()
 
 def card_article(a: dict):
+    summary = a.get('summary','(no summary)')
+    word_count = len(summary.split())
+    
     st.markdown(
         f"**{a.get('title','(title)')}**  \n"
         f"[Open Link]({a.get('url','')})  \n"
         f"*Source:* {a.get('source','?')}  \n"
-        f"*Published:* {a.get('published_date','?')}  \n\n"
-        f"{a.get('summary','(no summary)')}"
+        f"*Published:* {a.get('published_date','?')}  \n"
+        f"*Summary Length:* {word_count} words (target: 150-200)  \n\n"
+        f"{summary}"
     )
 
 def render_home(final: dict):

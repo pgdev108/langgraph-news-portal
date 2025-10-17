@@ -33,20 +33,42 @@ def _iso_date_from_result(obj: dict) -> Optional[str]:
 def news_search(query: str, days_hint: int = 21) -> List[Dict]:
     """Search recent news via Serper and return normalized items."""
     wrapper = _serper()
-    # Put recency in the query text (Serper wrapper's simple interface)
-    q = f"{query} newer than last {days_hint} days"
-    raw = wrapper.results(q)
-    items = []
-    for obj in raw.get("news", []) + raw.get("organic", []):
-        items.append({
-            "title": (obj.get("title") or "").strip(),
-            "url": (obj.get("link") or obj.get("url") or "").strip(),
-            "source": (obj.get("source") or obj.get("publisher") or "").strip(),
-            "published_date": _iso_date_from_result(obj),
-        })
+    # Use more specific time-based queries and add randomization
+    import random
+    from datetime import datetime
+    
+    # Add current date and randomization to make queries more unique
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    random_suffix = random.randint(1, 1000)
+    
+    # Try multiple query variations for better results
+    query_variations = [
+        f"{query} {current_date}",
+        f"{query} latest news",
+        f"{query} recent developments",
+        f"{query} breaking news"
+    ]
+    
+    all_items = []
+    for q in query_variations[:2]:  # Use first 2 variations to avoid rate limits
+        try:
+            raw = wrapper.results(q)
+            items = []
+            for obj in raw.get("news", []) + raw.get("organic", []):
+                items.append({
+                    "title": (obj.get("title") or "").strip(),
+                    "url": (obj.get("link") or obj.get("url") or "").strip(),
+                    "source": (obj.get("source") or obj.get("publisher") or "").strip(),
+                    "published_date": _iso_date_from_result(obj),
+                })
+            all_items.extend(items)
+        except Exception as e:
+            print(f"⚠️ Search query failed: {q} - {e}")
+            continue
+    
     # Deduplicate by (title,url)
     out, seen = [], set()
-    for it in items:
+    for it in all_items:
         key = (it["title"].lower(), it["url"].lower())
         if it["title"] and it["url"] and key not in seen:
             seen.add(key)
