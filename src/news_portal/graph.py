@@ -1,15 +1,3 @@
-"""
-Optimized Graph for News Portal
-
-This module implements a high-performance version of the news portal graph
-with the following optimizations:
-- Parallel processing of subtopics
-- Batch LLM calls
-- Shorter prompts and outputs
-- Reduced article processing
-- Direct function calls (no MCP overhead)
-"""
-
 import json
 import asyncio
 import time
