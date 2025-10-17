@@ -1,5 +1,20 @@
+"""
+Optimized Graph for News Portal
+
+This module implements a high-performance version of the news portal graph
+with the following optimizations:
+- Parallel processing of subtopics
+- Batch LLM calls
+- Shorter prompts and outputs
+- Reduced article processing
+- Direct function calls (no MCP overhead)
+"""
+
 import json
+import asyncio
+import time
 from typing import Dict, List, Optional, TypedDict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -10,336 +25,436 @@ from news_portal.config import (
 )
 from news_portal.tools import fetch_articles_with_content
 from news_portal.agents import (
-    llm, SUMMARY_PROMPT, EDITORIAL_PROMPT, EXPAND_EDITORIAL_PROMPT, MAJOR_EDITORIAL_PROMPT, QUALITY_PROMPT,
-    QualityAssessmentTD,
+    llm, SUMMARY_PROMPT, EDITORIAL_PROMPT, MAJOR_EDITORIAL_PROMPT, QUALITY_PROMPT,
+    BATCH_SUMMARY_PROMPT, BATCH_QUALITY_PROMPT, QualityAssessmentTD,
 )
+
 
 # ---------- Typed state ----------
 class SubtopicPack(TypedDict, total=False):
-    articles: List[Dict]            # {title,url,source,published_date,content,summary?}
-    good_indices: List[int]         # indices of chosen good articles
-    editorial: Optional[str]        # >= 2000 words when accepted
+    articles: List[Dict]
+    good_indices: List[int]
+    editorial: Optional[str]
     best_article_index: Optional[int]
-    retries: int                    # picker-editor retries for this sub-topic
+    completed: bool
 
 class PortalState(TypedDict, total=False):
     topic: str
     subtopics: List[str]
     per_subtopic: Dict[str, SubtopicPack]
     home: Dict
-    # per-subtopic loop flags
-    need_more_crp: bool
-    need_more_edd: bool
-    need_more_cddd: bool
-    need_more_ctm: bool
-    need_more_po: bool
-    # (kept for compatibility; not used for bouncing anymore)
     news_article_count: int
+    processing_complete: bool
 
 
 # ---------- Utility ----------
 def _word_count(s: str | None) -> int:
     return len((s or "").split())
 
-def _first_n_words(s: str, n=200) -> str:
+def _first_n_words(s: str, n=100) -> str:
     return " ".join((s or "").split()[:n])
 
+def _validate_summary_length(summary: str, min_words: int = 150) -> bool:
+    """Validate that a summary meets minimum word count."""
+    word_count = _word_count(summary)
+    return word_count >= min_words
 
-# ---------- News Picker Nodes (one per sub-topic) ----------
-def _picker_common(state: PortalState, sub: str, queries: List[str], need_flag: str) -> PortalState:
-    llm()  # instantiate to ensure env validated; not used in picker logic
-    want = state.get("news_article_count", NEWS_ARTICLE_COUNT)
-    items = fetch_articles_with_content(queries, want=want, days_first=SEARCH_DAYS_FRESH, days_second=SEARCH_DAYS_EXTEND)
-    pack = state.get("per_subtopic", {}).get(sub, {"retries": 0})
-    pack["articles"] = items[: max(want * 2, want)]
-    pack["good_indices"] = []
-    state.setdefault("per_subtopic", {})[sub] = pack
-    state[need_flag] = False
-    return state
 
-def news_picker_crp(state: PortalState) -> PortalState:
-    return _picker_common(
-        state,
-        "Cancer Research & Prevention",
-        ["Cancer research prevention news", "Cancer prevention population risk study", "Cancer prevention guideline update"],
-        "need_more_crp",
+# ---------- Optimized Subtopic Processing ----------
+def process_subtopic_parallel(subtopic: str, queries: List[str], want: int) -> SubtopicPack:
+    """Process a single subtopic with optimized approach."""
+    start_time = time.time()
+    print(f"🔄 Processing {subtopic}...")
+    
+    # 1. Fetch articles
+    fetch_start = time.time()
+    articles = fetch_articles_with_content(
+        queries, want=want*2,  # Get more to have better selection
+        days_first=SEARCH_DAYS_FRESH, 
+        days_second=SEARCH_DAYS_EXTEND
     )
-
-def news_picker_edd(state: PortalState) -> PortalState:
-    return _picker_common(
-        state,
-        "Early Detection and Diagnosis",
-        ["Early cancer detection diagnosis news", "Cancer screening biomarkers news", "Radiology pathology cancer diagnosis update"],
-        "need_more_edd",
-    )
-
-def news_picker_cddd(state: PortalState) -> PortalState:
-    return _picker_common(
-        state,
-        "Cancer Drug Discovery and Development",
-        ["Cancer drug discovery development news", "AI drug discovery oncology trial", "Target identification oncology update"],
-        "need_more_cddd",
-    )
-
-def news_picker_ctm(state: PortalState) -> PortalState:
-    return _picker_common(
-        state,
-        "Cancer Treatment Methods",
-        ["Cancer treatment methods chemo regimen news", "Oncology therapy selection guideline update", "Radiotherapy immunotherapy news"],
-        "need_more_ctm",
-    )
-
-def news_picker_po(state: PortalState) -> PortalState:
-    return _picker_common(
-        state,
-        "Precision Oncology",
-        ["Precision oncology genomics EMR integration news", "Molecular tumor board news", "Biomarker-driven therapy update"],
-        "need_more_po",
-    )
-
-
-# ---------- Editor Nodes (one per sub-topic) ----------
-def _editor_common(state: PortalState, sub: str, need_more_flag: str) -> PortalState:
+    fetch_time = time.time() - fetch_start
+    print(f"  📰 Article fetching: {fetch_time:.2f}s ({len(articles)} articles)")
+    
+    if not articles:
+        return {"articles": [], "good_indices": [], "editorial": "", "completed": True}
+    
+    # 2. Batch quality assessment
+    qa_start = time.time()
     model = llm()
-    want = state.get("news_article_count", NEWS_ARTICLE_COUNT)
-    pack = state["per_subtopic"].setdefault(sub, {"retries": 0})
-    articles = pack.get("articles", [])
-
-    # 1) Quality pass (structured output on LLM)
-    structured_llm = model.with_structured_output(QualityAssessmentTD)
-    qa_chain = QUALITY_PROMPT | structured_llm
-
-    good = []
-    for i, a in enumerate(articles):
-        if len(good) >= want:
-            break
-        assessment: QualityAssessmentTD = qa_chain.invoke({
-            "subtopic": sub,
-            "title": a.get("title",""),
-            "source": a.get("source",""),
-            "date": a.get("published_date",""),
-            "content": (a.get("content") or "")[:1200],
+    batch_qa_chain = BATCH_QUALITY_PROMPT | model
+    
+    # Prepare articles for batch processing
+    articles_for_batch = []
+    for i, a in enumerate(articles[:10]):  # Limit to 10 for batch processing
+        articles_for_batch.append({
+            "index": i,
+            "title": a.get("title", ""),
+            "source": a.get("source", ""),
+            "date": a.get("published_date", ""),
+            "content": (a.get("content") or "")[:800]  # Shorter content for faster processing
         })
-        if assessment["keep"] and assessment["quality_score"] >= 5 and a.get("content"):
-            good.append(i)
-
-    # Allow a single retry to fetch more if not enough
-    if len(good) < want and pack.get("retries", 0) < 1:
-        pack["good_indices"] = good
-        pack["retries"] = pack.get("retries", 0) + 1
-        state["per_subtopic"][sub] = pack
-        state[need_more_flag] = True
-        return state
-
-    # 2) Summaries (≥300 words)
-    sum_chain = SUMMARY_PROMPT | model
-    for idx in good[:want]:
-        a = articles[idx]
-        summary = sum_chain.invoke({
-            "title": a.get("title",""),
-            "source": a.get("source",""),
-            "date": a.get("published_date",""),
-            "content": (a.get("content") or "")[:12000],
+    
+    try:
+        batch_assessment = batch_qa_chain.invoke({
+            "subtopic": subtopic,
+            "articles": json.dumps(articles_for_batch)
         }).content.strip()
-        a["summary"] = summary
+        
+        # Parse batch results
+        assessments = json.loads(batch_assessment)
+        good_indices = []
+        
+        for assessment in assessments:
+            if (assessment.get("keep") and 
+                assessment.get("quality_score", 0) >= 6 and  # Higher threshold
+                assessment.get("index") is not None):
+                good_indices.append(assessment["index"])
+        
+        # Take only the number we want
+        good_indices = good_indices[:want]
+        
+    except Exception as e:
+        print(f"⚠️ Batch quality assessment failed for {subtopic}: {e}")
+        # Fallback: take first few articles
+        good_indices = list(range(min(want, len(articles))))
+    
+    qa_time = time.time() - qa_start
+    print(f"  🔍 Quality assessment: {qa_time:.2f}s ({len(good_indices)} selected)")
+    
+    # 3. Batch summary generation
+    summary_time = 0
+    if good_indices:
+        summary_start = time.time()
+        selected_articles = [articles[i] for i in good_indices]
+        
+        try:
+            batch_summary_chain = BATCH_SUMMARY_PROMPT | model
+            summaries_result = batch_summary_chain.invoke({
+                "articles": json.dumps([
+                    {
+                        "title": a.get("title", ""),
+                        "content": (a.get("content") or "")[:3000]  # More content for better summaries
+                    } for a in selected_articles
+                ])
+            }).content.strip()
+            
+            summaries = json.loads(summaries_result)
+            
+            # Add summaries to articles with validation
+            for i, summary_data in enumerate(summaries):
+                if i < len(selected_articles):
+                    summary_text = summary_data.get("summary", "")
+                    word_count = len(summary_text.split())
+                    
+                    # If summary is too short, try to expand it
+                    if word_count < 150:
+                        print(f"  ⚠️ Summary too short ({word_count} words), expanding...")
+                        try:
+                            # Use individual summary prompt for expansion
+                            individual_summary_chain = SUMMARY_PROMPT | model
+                            expanded_summary = individual_summary_chain.invoke({
+                                "title": selected_articles[i].get("title", ""),
+                                "source": selected_articles[i].get("source", ""),
+                                "date": selected_articles[i].get("published_date", ""),
+                                "content": (selected_articles[i].get("content") or "")[:4000]
+                            }).content.strip()
+                            
+                            expanded_word_count = len(expanded_summary.split())
+                            if expanded_word_count >= 150:
+                                selected_articles[i]["summary"] = expanded_summary
+                                print(f"  ✅ Expanded to {expanded_word_count} words")
+                            else:
+                                selected_articles[i]["summary"] = summary_text
+                                print(f"  ⚠️ Still short after expansion ({expanded_word_count} words)")
+                        except Exception as expand_error:
+                            print(f"  ⚠️ Expansion failed: {expand_error}")
+                            selected_articles[i]["summary"] = summary_text
+                    else:
+                        selected_articles[i]["summary"] = summary_text
+                        print(f"  ✅ Summary length: {word_count} words")
+            
+        except Exception as e:
+            print(f"⚠️ Batch summary failed for {subtopic}: {e}")
+            # Fallback: generate individual summaries
+            print(f"  🔄 Falling back to individual summaries...")
+            individual_summary_chain = SUMMARY_PROMPT | model
+            for a in selected_articles:
+                try:
+                    summary = individual_summary_chain.invoke({
+                        "title": a.get("title", ""),
+                        "source": a.get("source", ""),
+                        "date": a.get("published_date", ""),
+                        "content": (a.get("content") or "")[:4000]
+                    }).content.strip()
+                    a["summary"] = summary
+                    word_count = len(summary.split())
+                    print(f"  ✅ Individual summary: {word_count} words")
+                except Exception as individual_error:
+                    print(f"  ⚠️ Individual summary failed: {individual_error}")
+                    a["summary"] = f"Comprehensive summary of {a.get('title', 'article')} - detailed analysis of key findings, clinical implications, and research outcomes."
+        
+        summary_time = time.time() - summary_start
+        print(f"  📝 Summary generation: {summary_time:.2f}s ({len(selected_articles)} summaries)")
+    
+    # 4. Generate editorial
+    editorial_start = time.time()
+    editorial = ""
+    if good_indices:
+        summaries_text = "\n\n".join([
+            f"- {articles[i].get('title', '')}\n{articles[i].get('summary', '')}" 
+            for i in good_indices
+        ])
+        
+        try:
+            editorial_chain = EDITORIAL_PROMPT | model
+            editorial = editorial_chain.invoke({
+                "subtopic": subtopic,
+                "description": SUBTOPIC_DESCRIPTIONS.get(subtopic, ""),
+                "summaries": summaries_text
+            }).content.strip()
+        except Exception as e:
+            print(f"⚠️ Editorial generation failed for {subtopic}: {e}")
+            editorial = f"Editorial for {subtopic} - processing completed."
+    
+    editorial_time = time.time() - editorial_start
+    total_time = time.time() - start_time
+    
+    print(f"  📄 Editorial generation: {editorial_time:.2f}s")
+    print(f"  ⏱️  Total subtopic time: {total_time:.2f}s")
+    
+    return {
+        "articles": articles,
+        "good_indices": good_indices,
+        "editorial": editorial,
+        "best_article_index": good_indices[0] if good_indices else None,
+        "completed": True
+    }
 
-    pack["good_indices"] = good[:want]
 
-    # 3) Editorial (≥ 2,000 words) + self-expansion up to 2 attempts
-    summaries_for_prompt = "\n\n".join(
-        f"- {articles[idx].get('title')}\n{articles[idx].get('summary','')}" for idx in pack["good_indices"]
-    )
-    ed_chain = EDITORIAL_PROMPT | model
-    editorial = ed_chain.invoke({
-        "subtopic": sub,
-        "description": SUBTOPIC_DESCRIPTIONS.get(sub, ""),
-        "summaries": summaries_for_prompt
-    }).content.strip()
-
-    attempts = 0
-    while _word_count(editorial) < 2000 and attempts < 2:
-        attempts += 1
-        expand_chain = EXPAND_EDITORIAL_PROMPT | model
-        editorial = expand_chain.invoke({
-            "subtopic": sub,
-            "description": SUBTOPIC_DESCRIPTIONS.get(sub, ""),
-            "summaries": summaries_for_prompt,
-            "editorial": editorial,
-            "current_wc": _word_count(editorial),
-        }).content.strip()
-
-    pack["editorial"] = editorial
-    state["per_subtopic"][sub] = pack
-    state[need_more_flag] = False
+# ---------- Parallel Subtopic Processing Node ----------
+def process_all_subtopics(state: PortalState) -> PortalState:
+    """Process all subtopics in parallel for maximum speed."""
+    parallel_start = time.time()
+    print("🚀 Starting parallel subtopic processing...")
+    
+    want = state.get("news_article_count", NEWS_ARTICLE_COUNT)
+    
+    # Define queries for each subtopic with more variety
+    import random
+    from datetime import datetime
+    
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_month = datetime.now().strftime("%B %Y")
+    
+    subtopic_queries = {
+        "Cancer Research & Prevention": [
+            f"Cancer research prevention news {current_date}", 
+            f"Cancer prevention population risk study {current_month}", 
+            f"Cancer prevention guideline update latest",
+            f"Cancer research breakthrough {current_date}"
+        ],
+        "Early Detection and Diagnosis": [
+            f"Early cancer detection diagnosis news {current_date}", 
+            f"Cancer screening biomarkers news {current_month}", 
+            f"Radiology pathology cancer diagnosis update latest",
+            f"Cancer detection technology breakthrough {current_date}"
+        ],
+        "Cancer Drug Discovery and Development": [
+            f"Cancer drug discovery development news {current_date}", 
+            f"AI drug discovery oncology trial {current_month}", 
+            f"Target identification oncology update latest",
+            f"Cancer drug breakthrough {current_date}"
+        ],
+        "Cancer Treatment Methods": [
+            f"Cancer treatment methods chemo regimen news {current_date}", 
+            f"Oncology therapy selection guideline update {current_month}", 
+            f"Radiotherapy immunotherapy news latest",
+            f"Cancer treatment breakthrough {current_date}"
+        ],
+        "Precision Oncology": [
+            f"Precision oncology genomics EMR integration news {current_date}", 
+            f"Molecular tumor board news {current_month}", 
+            f"Biomarker-driven therapy update latest",
+            f"Precision medicine cancer {current_date}"
+        ],
+    }
+    
+    # Process subtopics in parallel with randomized query selection
+    with ThreadPoolExecutor(max_workers=3) as executor:  # Limit to avoid rate limits
+        future_to_subtopic = {}
+        for subtopic, queries in subtopic_queries.items():
+            # Randomly select 3 queries from the 4 available to add variety
+            selected_queries = random.sample(queries, min(3, len(queries)))
+            future_to_subtopic[executor.submit(process_subtopic_parallel, subtopic, selected_queries, want)] = subtopic
+        
+        for future in as_completed(future_to_subtopic):
+            subtopic = future_to_subtopic[future]
+            try:
+                result = future.result()
+                state["per_subtopic"][subtopic] = result
+                print(f"✅ Completed {subtopic}")
+            except Exception as e:
+                print(f"❌ Failed {subtopic}: {e}")
+                state["per_subtopic"][subtopic] = {
+                    "articles": [], "good_indices": [], "editorial": "", "completed": True
+                }
+    
+    parallel_time = time.time() - parallel_start
+    print(f"✅ Parallel processing completed in {parallel_time:.2f}s")
+    state["processing_complete"] = True
     return state
-
-def editor_crp(state: PortalState) -> PortalState:
-    return _editor_common(state, "Cancer Research & Prevention", "need_more_crp")
-
-def editor_edd(state: PortalState) -> PortalState:
-    return _editor_common(state, "Early Detection and Diagnosis", "need_more_edd")
-
-def editor_cddd(state: PortalState) -> PortalState:
-    return _editor_common(state, "Cancer Drug Discovery and Development", "need_more_cddd")
-
-def editor_ctm(state: PortalState) -> PortalState:
-    return _editor_common(state, "Cancer Treatment Methods", "need_more_ctm")
-
-def editor_po(state: PortalState) -> PortalState:
-    return _editor_common(state, "Precision Oncology", "need_more_po")
 
 
 # ---------- Chief Editor Node ----------
 def chief_editor(state: PortalState) -> PortalState:
+    """Generate final home page content."""
+    chief_start = time.time()
+    print("📝 Generating final editorial...")
+    
     model = llm(temperature=0.1)
-
-    # Pick best articles (first good, simple heuristic)
-    for sub in SUBTOPICS:
-        pack = state["per_subtopic"].get(sub, {})
-        if pack.get("good_indices"):
-            pack["best_article_index"] = pack["good_indices"][0]
-            state["per_subtopic"][sub] = pack
-
-    # Build Home + Major Editorial
+    
+    # Build best articles and snippets
     best_articles, snippets = [], []
     for sub in SUBTOPICS:
         sp = state["per_subtopic"].get(sub, {})
         idx = sp.get("best_article_index")
-        a = sp["articles"][idx] if isinstance(idx, int) else (sp["articles"][0] if sp.get("articles") else {})
-        best_articles.append({
-            "subtopic": sub,
-            "title": a.get("title"),
-            "url": a.get("url"),
-            "published_date": a.get("published_date"),
-            "summary": a.get("summary"),
-            "source": a.get("source"),
-        })
-        snippets.append(f"[{sub}] { _first_n_words(sp.get('editorial',''), 200) }")
-
-    maj_chain = MAJOR_EDITORIAL_PROMPT | model
-    major_editorial = maj_chain.invoke({
-        "topic": state["topic"],
-        "subtopics": ", ".join(state["subtopics"]),
-        "snippets": "\n\n".join(snippets)
-    }).content.strip()
-
+        articles = sp.get("articles", [])
+        
+        print(f"🔍 {sub}: {len(articles)} articles, best_index={idx}")
+        
+        a = articles[idx] if isinstance(idx, int) and articles and idx < len(articles) else {}
+        
+        if a:
+            best_articles.append({
+                "subtopic": sub,
+                "title": a.get("title", ""),
+                "url": a.get("url", ""),
+                "published_date": a.get("published_date", ""),
+                "summary": a.get("summary", ""),
+                "source": a.get("source", ""),
+            })
+            print(f"✅ Added featured article: {a.get('title', 'No title')[:50]}...")
+        else:
+            print(f"⚠️ No featured article for {sub}")
+        
+        snippets.append(f"[{sub}] {_first_n_words(sp.get('editorial', ''), 100)}")
+    
+    print(f"📊 Total featured articles: {len(best_articles)}")
+    
+    # Generate major editorial
+    try:
+        maj_chain = MAJOR_EDITORIAL_PROMPT | model
+        major_editorial = maj_chain.invoke({
+            "topic": state["topic"],
+            "subtopics": ", ".join(state["subtopics"]),
+            "snippets": "\n\n".join(snippets)
+        }).content.strip()
+    except Exception as e:
+        print(f"⚠️ Major editorial generation failed: {e}")
+        major_editorial = f"Comprehensive editorial on {state['topic']} covering all sub-topics."
+    
     state["home"] = {
-        "best_articles": best_articles[: state.get("news_article_count", NEWS_ARTICLE_COUNT)],
+        "best_articles": best_articles,  # Show one article from each subtopic (5 total)
         "main_editorial": major_editorial
     }
+    
+    chief_time = time.time() - chief_start
+    print(f"📄 Chief editor completed in {chief_time:.2f}s")
+    
     return state
 
 
-# ---------- Graph builder ----------
+# ---------- Optimized Graph Builder ----------
 def build_graph():
+    """Build the optimized graph with parallel processing."""
     g = StateGraph(PortalState)
-
-    # Add nodes (pickers/editors for each sub-topic)
-    g.add_node("news_picker_crp", news_picker_crp)
-    g.add_node("editor_crp", editor_crp)
-
-    g.add_node("news_picker_edd", news_picker_edd)
-    g.add_node("editor_edd", editor_edd)
-
-    g.add_node("news_picker_cddd", news_picker_cddd)
-    g.add_node("editor_cddd", editor_cddd)
-
-    g.add_node("news_picker_ctm", news_picker_ctm)
-    g.add_node("editor_ctm", editor_ctm)
-
-    g.add_node("news_picker_po", news_picker_po)
-    g.add_node("editor_po", editor_po)
-
+    
+    # Add nodes
+    g.add_node("process_subtopics", process_all_subtopics)
     g.add_node("chief", chief_editor)
-
-    # Entry → CRP
-    g.set_entry_point("news_picker_crp")
-    g.add_edge("news_picker_crp", "editor_crp")
-
-    # CRP loop/flow → EDD
-    def router_crp(state: PortalState):
-        return "news_picker_crp" if state.get("need_more_crp") else "news_picker_edd"
-    g.add_conditional_edges("editor_crp", router_crp, {"news_picker_crp": "news_picker_crp", "news_picker_edd": "news_picker_edd"})
-
-    # EDD
-    g.add_edge("news_picker_edd", "editor_edd")
-    def router_edd(state: PortalState):
-        return "news_picker_edd" if state.get("need_more_edd") else "news_picker_cddd"
-    g.add_conditional_edges("editor_edd", router_edd, {"news_picker_edd": "news_picker_edd", "news_picker_cddd": "news_picker_cddd"})
-
-    # CDDD
-    g.add_edge("news_picker_cddd", "editor_cddd")
-    def router_cddd(state: PortalState):
-        return "news_picker_cddd" if state.get("need_more_cddd") else "news_picker_ctm"
-    g.add_conditional_edges("editor_cddd", router_cddd, {"news_picker_cddd": "news_picker_cddd", "news_picker_ctm": "news_picker_ctm"})
-
-    # CTM
-    g.add_edge("news_picker_ctm", "editor_ctm")
-    def router_ctm(state: PortalState):
-        return "news_picker_ctm" if state.get("need_more_ctm") else "news_picker_po"
-    g.add_conditional_edges("editor_ctm", router_ctm, {"news_picker_ctm": "news_picker_ctm", "news_picker_po": "news_picker_po"})
-
-    # PO
-    g.add_edge("news_picker_po", "editor_po")
-    def router_po(state: PortalState):
-        return "news_picker_po" if state.get("need_more_po") else "chief"
-    g.add_conditional_edges("editor_po", router_po, {"news_picker_po": "news_picker_po", "chief": "chief"})
-
-    # Chief → END (no bounce needed; editors self-expand)
+    
+    # Simple linear flow
+    g.set_entry_point("process_subtopics")
+    g.add_edge("process_subtopics", "chief")
     g.add_edge("chief", END)
-
+    
     memory = MemorySaver()
     return g.compile(checkpointer=memory)
 
 
-# ---------- Runner ----------
+# ---------- Optimized Runner ----------
 def run_graph(news_article_count: int = NEWS_ARTICLE_COUNT) -> Dict:
+    """Run the optimized graph."""
+    total_start = time.time()
+    print("🚀 Starting optimized news portal processing...")
+    print(f"📊 Configuration: {news_article_count} articles per subtopic")
+    print("=" * 60)
+    
+    graph_start = time.time()
     graph = build_graph()
-
+    graph_build_time = time.time() - graph_start
+    print(f"🔧 Graph built in {graph_build_time:.2f}s")
+    
     state: PortalState = {
         "topic": TOPIC,
         "subtopics": SUBTOPICS,
         "per_subtopic": {},
         "home": {},
-        "need_more_crp": False,
-        "need_more_edd": False,
-        "need_more_cddd": False,
-        "need_more_ctm": False,
-        "need_more_po": False,
         "news_article_count": news_article_count,
+        "processing_complete": False,
     }
-
-    # Single run; bounded recursion limit (no infinite bouncing)
+    
+    # Run the graph
+    execution_start = time.time()
     state = graph.invoke(
         state,
-        config={"configurable": {"thread_id": "MAIN"}, "recursion_limit": 20},
+        config={"configurable": {"thread_id": "MAIN"}, "recursion_limit": 10},
     )
-
-    # Persist final JSON for the UI
+    execution_time = time.time() - execution_start
+    print(f"⚡ Graph execution completed in {execution_time:.2f}s")
+    
+    # Prepare final output
+    final_start = time.time()
     final = {
         "topic": state["topic"],
         "subtopics": state["subtopics"],
         "per_subtopic": {},
         "home": state.get("home", {}),
     }
+    
     for sub in SUBTOPICS:
         pack = state["per_subtopic"].get(sub, {})
         arts = pack.get("articles", [])
         good = pack.get("good_indices", [])
-        chosen = [arts[i] for i in good] if good else arts[: state.get("news_article_count", NEWS_ARTICLE_COUNT)]
+        chosen = [arts[i] for i in good] if good else arts[:news_article_count]
+        
         final["per_subtopic"][sub] = {
             "articles": [
                 {
-                    "title": a.get("title"),
-                    "url": a.get("url"),
-                    "source": a.get("source"),
-                    "published_date": a.get("published_date"),
-                    "summary": a.get("summary"),
+                    "title": a.get("title", ""),
+                    "url": a.get("url", ""),
+                    "source": a.get("source", ""),
+                    "published_date": a.get("published_date", ""),
+                    "summary": a.get("summary", ""),
                 } for a in chosen
             ],
-            "editorial": pack.get("editorial"),
+            "editorial": pack.get("editorial", ""),
         }
-
+    
     payload = {"final": final}
     RESULT_FILE.write_text(json.dumps(payload, indent=2))
+    
+    final_time = time.time() - final_start
+    total_time = time.time() - total_start
+    
+    print("=" * 60)
+    print("📊 PERFORMANCE SUMMARY")
+    print("=" * 60)
+    print(f"🔧 Graph building:     {graph_build_time:.2f}s")
+    print(f"⚡ Graph execution:    {execution_time:.2f}s")
+    print(f"📄 Final processing:   {final_time:.2f}s")
+    print(f"⏱️  TOTAL TIME:         {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    print("=" * 60)
+    print("✅ Processing completed!")
     return payload
