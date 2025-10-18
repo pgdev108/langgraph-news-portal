@@ -298,12 +298,16 @@ def process_all_subtopics(state: PortalState) -> PortalState:
 def chief_editor(state: PortalState) -> PortalState:
     """Generate final home page content."""
     chief_start = time.time()
+    print("📝 Chief Editor starting...")
     print("📝 Generating final editorial...")
     
     model = llm(temperature=0.1)
+    print("✅ LLM model initialized")
     
     # Build best articles and snippets
     best_articles, snippets = [], []
+    print(f"📊 Processing {len(SUBTOPICS)} subtopics for featured articles...")
+    
     for sub in SUBTOPICS:
         sp = state["per_subtopic"].get(sub, {})
         idx = sp.get("best_article_index")
@@ -329,18 +333,49 @@ def chief_editor(state: PortalState) -> PortalState:
         snippets.append(f"[{sub}] {_first_n_words(sp.get('editorial', ''), 100)}")
     
     print(f"📊 Total featured articles: {len(best_articles)}")
+    print(f"📊 Total snippets: {len(snippets)}")
     
-    # Generate major editorial
+    # Generate major editorial with improved error handling
+    print("📝 Starting major editorial generation...")
+    print("🔍 Debug: About to create MAJOR_EDITORIAL_PROMPT chain...")
+    
     try:
+        import concurrent.futures
+        
+        print("🔍 Debug: Creating editorial chain...")
         maj_chain = MAJOR_EDITORIAL_PROMPT | model
-        major_editorial = maj_chain.invoke({
+        print("✅ Editorial chain created successfully")
+        
+        print(f"📊 Generating editorial for topic: {state['topic']}")
+        print(f"📊 Subtopic snippets length: {len(snippets)}")
+        print(f"🔍 Debug: Snippets preview: {snippets[0][:100]}..." if snippets else "No snippets")
+        
+        # Prepare the input data
+        editorial_input = {
             "topic": state["topic"],
             "subtopics": ", ".join(state["subtopics"]),
             "snippets": "\n\n".join(snippets)
-        }).content.strip()
+        }
+        print(f"🔍 Debug: Editorial input prepared, snippets length: {len(editorial_input['snippets'])}")
+        
+        # Use timeout to prevent hanging
+        print("🔍 Debug: Starting LLM call with timeout...")
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(maj_chain.invoke, editorial_input)
+            try:
+                print("🔍 Debug: Waiting for LLM response (max 60 seconds)...")
+                result = future.result(timeout=60)  # Reduced back to 60 seconds
+                print("✅ LLM call completed successfully")
+                major_editorial = result.content.strip()
+                print(f"✅ Major editorial generated: {len(major_editorial)} characters")
+            except concurrent.futures.TimeoutError:
+                print("⏰ Major editorial generation timed out after 60s")
+                major_editorial = f"Comprehensive editorial on {state['topic']} covering all sub-topics. Editorial generation timed out after 1 minute."
+        
     except Exception as e:
         print(f"⚠️ Major editorial generation failed: {e}")
-        major_editorial = f"Comprehensive editorial on {state['topic']} covering all sub-topics."
+        print(f"🔍 Debug: Exception type: {type(e).__name__}")
+        major_editorial = f"Comprehensive editorial on {state['topic']} covering all sub-topics. Editorial generation failed due to technical issues: {str(e)[:100]}..."
     
     state["home"] = {
         "best_articles": best_articles,  # Show one article from each subtopic (5 total)
