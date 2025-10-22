@@ -1,0 +1,33 @@
+# Domain Intelligence MCP Server Requirements
+# ===========================================
+
+# Core MCP Framework
+mcp>=1.0.0
+
+# Graph Processing (No PyTorch needed!)
+networkx>=3.0
+scipy>=1.10.0
+numpy>=1.24.0
+
+# LLM Integration
+openai>=1.0.0
+anthropic>=0.7.0
+
+# Image Processing
+Pillow>=10.0.0
+requests>=2.31.0
+
+# Data Processing
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# Async Support
+asyncio-mqtt>=0.13.0
+aiofiles>=23.0.0
+
+# Development & Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
