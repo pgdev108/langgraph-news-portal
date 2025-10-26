@@ -10,19 +10,20 @@ This guide shows how to use the FastMCP server for domain intelligence tools, in
 
 ```bash
 # In one terminal, start the server
-fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8000
+fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002
 ```
 
-The server will start and listen on `http://localhost:8000`. You should see output like:
+The server will start and listen on `http://localhost:8002`. You should see output like:
 
 ```
 🚀 Starting FastMCP Domain Intelligence Server...
 ==================================================
 Available tools:
   - generate_cover_image: Generate contextual cover images
-  - build_knowledge_graph: Build domain knowledge graphs
   - extract_keywords: Extract high-centrality keywords
   - build_glossary: Build domain glossaries
+==================================================
+ℹ️  Note: Knowledge graph is pre-built and loaded at startup
 ==================================================
 ```
 
@@ -30,7 +31,7 @@ Available tools:
 
 ```bash
 # In another terminal, run the test client
-python src/news_portal/mcp/fastmcp_client.py
+python src/news_portal/mcp_tools/tests/test_article_cover.py
 ```
 
 ## Available Tools
@@ -60,33 +61,7 @@ result = await client.call_tool(
 )
 ```
 
-### 2. `build_knowledge_graph`
-
-Build domain-specific knowledge graphs from documents.
-
-**Parameters:**
-- `domain` (str): The domain name
-- `documents` (list): List of documents to analyze
-- `max_nodes` (int, optional): Maximum nodes (default: 50)
-- `min_centrality` (float, optional): Minimum centrality threshold (default: 0.05)
-
-**Example:**
-```python
-result = await client.call_tool(
-    "build_knowledge_graph",
-    {
-        "domain": "cancer_care",
-        "documents": [
-            "Precision oncology uses molecular profiling...",
-            "Immunotherapy harnesses the immune system..."
-        ],
-        "max_nodes": 20,
-        "min_centrality": 0.05
-    }
-)
-```
-
-### 3. `extract_keywords`
+### 2. `extract_keywords`
 
 Extract high-centrality keywords from text using knowledge graph.
 
@@ -109,7 +84,7 @@ result = await client.call_tool(
 )
 ```
 
-### 4. `build_glossary`
+### 3. `build_glossary`
 
 Build high-value glossaries from knowledge graph nodes.
 
@@ -138,7 +113,7 @@ result = await client.call_tool(
 from fastmcp import Client
 
 async def test_tool():
-    client = Client("http://localhost:8000/mcp")
+    client = Client("http://localhost:8002/mcp")
     
     async with client:
         result = await client.call_tool("generate_cover_image", {
@@ -168,9 +143,17 @@ except Exception as e:
 
 ## Server Features
 
-### Pre-loaded Test Knowledge Graph
+### Pre-built Knowledge Graph
 
-The server comes with a pre-loaded test knowledge graph for the "cancer_care" domain, so you can test cover image generation immediately without building a knowledge graph first.
+The server comes with a pre-built knowledge graph for the "cancer health care" domain. This graph is loaded automatically at server startup from `src/news_portal/mcp_tools/knowledge_graphs/cancer_health_care.json`.
+
+To rebuild the knowledge graph (e.g., after updating domain documents), run:
+
+```bash
+uv run python src/news_portal/mcp_tools/build_knowledge_graph.py
+```
+
+This generates a fresh knowledge graph and saves it to the JSON file for future use.
 
 ### Environment Variables
 
@@ -189,67 +172,47 @@ The server logs all operations to stderr, so it won't interfere with the MCP pro
 ### Server Won't Start
 
 1. Check that `OPENAI_API_KEY` is set in your `.env` file
-2. Make sure port 8000 is not already in use
+2. Make sure port 8002 is not already in use
 3. Check that all dependencies are installed: `uv add fastmcp`
+4. Verify that the pre-built knowledge graph exists at `src/news_portal/mcp_tools/knowledge_graphs/cancer_health_care.json`
 
 ### Client Can't Connect
 
-1. Make sure the server is running: `fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8000`
-2. Check that the server is listening on `http://localhost:8000`
-3. Verify the client URL matches: `Client("http://localhost:8000/mcp")`
+1. Make sure the server is running: `fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002`
+2. Check that the server is listening on `http://localhost:8002`
+3. Verify the client URL matches: `Client("http://localhost:8002/mcp")`
 
 ### Tool Errors
 
 1. Check the server logs for detailed error messages
-2. Verify that the knowledge graph is built before using tools that depend on it
+2. Verify that the pre-built knowledge graph file exists at `src/news_portal/mcp_tools/knowledge_graphs/cancer_health_care.json`
 3. Make sure all required parameters are provided
 
 ## Advanced Usage
 
-### Custom Knowledge Graph
+### Using the Pre-built Graph
+
+The knowledge graph is automatically loaded at server startup. The current implementation supports the "cancer health care" domain, which is also accessible via the "cancer_care" alias for backward compatibility.
+
+### Extending to Multiple Domains
+
+To add support for additional domains, you would need to:
+
+1. Update `build_knowledge_graph.py` with documents for the new domain
+2. Run the build script to generate a new JSON file
+3. Update the `load_knowledge_graph()` function in `fastmcp_server.py` to load the new domain's graph
+
+Example for adding a finance domain:
 
 ```python
-# First build a knowledge graph
-kg_result = await client.call_tool("build_knowledge_graph", {
-    "domain": "finance",
-    "documents": ["Your financial documents..."],
-    "max_nodes": 30
-})
+# In build_knowledge_graph.py, add finance documents and build:
+finance_docs = ["..."]
 
-# Then use it for other tools
-if kg_result.get('status') == 'success':
-    keywords = await client.call_tool("extract_keywords", {
-        "text": "Your text here...",
-        "domain": "finance"
-    })
-```
+# Build the graph
+kg = build_knowledge_graph_for_domain("finance", finance_docs)
 
-### Multiple Domains
-
-You can work with multiple domains by building separate knowledge graphs:
-
-```python
-# Build knowledge graphs for different domains
-await client.call_tool("build_knowledge_graph", {
-    "domain": "cancer_care",
-    "documents": cancer_docs
-})
-
-await client.call_tool("build_knowledge_graph", {
-    "domain": "finance", 
-    "documents": finance_docs
-})
-
-# Use domain-specific tools
-cancer_image = await client.call_tool("generate_cover_image", {
-    "editorial_text": cancer_text,
-    "domain": "cancer_care"
-})
-
-finance_image = await client.call_tool("generate_cover_image", {
-    "editorial_text": finance_text,
-    "domain": "finance"
-})
+# Save it
+save_graph_to_json(kg, "knowledge_graphs/finance.json")
 ```
 
 ## Benefits of FastMCP

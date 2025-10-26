@@ -102,38 +102,7 @@ async def generate_and_view_image():
     try:
         async with client:
             print("✅ Connected to FastMCP server")
-            
-            # First, build a knowledge graph for precision_medicine domain
-            print("\n🔧 Step 1: Building knowledge graph for precision_medicine domain...")
-            kg_documents = [
-                "Precision medicine uses genetic testing to personalize cancer treatment.",
-                "Immunotherapy helps the immune system fight cancer cells effectively.",
-                "Targeted therapies attack specific molecular pathways in cancer cells.",
-                "Biomarkers predict treatment response and disease progression.",
-                "Early detection improves cancer survival rates significantly.",
-                "Liquid biopsies detect cancer DNA in blood samples non-invasively.",
-                "Molecular profiling identifies specific mutations in cancer cells.",
-                "Multidisciplinary approaches combine different treatment modalities."
-            ]
-            
-            kg_result = await client.call_tool(
-                "build_knowledge_graph",
-                {
-                    "domain": "precision_medicine",
-                    "documents": kg_documents,
-                    "max_nodes": 20,
-                    "min_centrality": 0.05
-                }
-            )
-            
-            kg_result_dict = parse_fastmcp_result(kg_result)
-            print(f"📊 Knowledge Graph Result: {kg_result_dict.get('status')}")
-            
-            if kg_result_dict.get('status') != 'success':
-                print(f"❌ Failed to build knowledge graph: {kg_result_dict.get('message')}")
-                return
-            
-            print(f"✅ Knowledge graph built: {kg_result_dict.get('nodes_count')} nodes, {kg_result_dict.get('edges_count')} edges")
+            print("ℹ️  Using pre-built knowledge graph loaded at server startup")
             
             # Test editorial text
             editorial_text = """
@@ -152,7 +121,7 @@ async def generate_and_view_image():
                 "generate_cover_image",
                 {
                     "editorial_text": editorial_text,
-                    "domain": "precision_medicine",
+                    "domain": "cancer health care",  # Use the pre-built domain
                     "style": "professional",
                     "dimensions": "1024x1024",
                     "image_engine": "dall-e-3"
@@ -235,7 +204,7 @@ async def generate_multiple_styles():
                     "generate_cover_image",
                     {
                         "editorial_text": editorial_text,
-                        "domain": "precision_medicine",
+                        "domain": "cancer health care",  # Use the pre-built domain
                         "style": style,
                         "dimensions": "1024x1024",
                         "image_engine": "dall-e-3"

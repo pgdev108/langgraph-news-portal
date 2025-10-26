@@ -32,7 +32,7 @@ python src/news_portal/mcp/tests/view_generated_images.py
 
 ### MCP Tools
 - **`mcp_tools_base.py`** - Base classes and shared utilities
-- **`mcp_tools_knowledge_graph.py`** - Knowledge graph builder
+- **`knowledge_graph_builder.py`** - Knowledge graph builder
 - **`mcp_tools_keyword_extractor.py`** - Keyword extraction tool
 - **`mcp_tools_glossary_builder.py`** - Glossary builder tool
 - **`mcp_tools_cover_image_generator.py`** - Cover image generator

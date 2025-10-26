@@ -23,7 +23,7 @@ from .mcp_tools_base import (
     Config
 )
 
-from .mcp_tools_knowledge_graph import KnowledgeGraphBuilderTool
+from .knowledge_graph_builder import KnowledgeGraphBuilderTool
 from .mcp_tools_keyword_extractor import KeywordExtractorTool
 from .mcp_tools_glossary_builder import GlossaryBuilderTool
 from .mcp_tools_cover_image_generator import CoverImageGeneratorTool

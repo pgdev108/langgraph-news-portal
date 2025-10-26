@@ -34,7 +34,8 @@ else:
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from news_portal.mcp_tools import KeywordExtractorTool, KnowledgeGraphBuilderTool
+from news_portal.mcp_tools import KeywordExtractorTool
+from news_portal.mcp_tools.knowledge_graph_builder import KnowledgeGraphBuilderTool
 
 async def test_keyword_extraction():
     """Test keyword extraction with various scenarios."""
@@ -42,61 +43,93 @@ async def test_keyword_extraction():
     print("=" * 60)
     
     kw_tool = KeywordExtractorTool()
-    kg_tool = KnowledgeGraphBuilderTool()
+    kg_loader = KnowledgeGraphBuilderTool()
+    kg_tool = KnowledgeGraphBuilderTool()  # For building dynamic graphs in tests
+    kg = None  # Initialize kg to None
     
-    # Test 1: Build knowledge graph first, then extract keywords
-    print("\n🧠 Test 1: With Knowledge Graph")
+    # Load pre-built knowledge graph for cancer health care
+    print("\n🔧 Loading pre-built knowledge graph for 'cancer health care'...")
+    # Path from tests to mcp_tools/knowledge_graphs
+    graph_file = Path(__file__).parent.parent / "knowledge_graphs" / "cancer_health_care.json"
+    
+    if graph_file.exists():
+        success = kg_loader.load_graph(str(graph_file))
+        if success:
+            kg = kg_loader.get_knowledge_graph("cancer health care")
+            if kg:
+                # Set for both domain names for backward compatibility
+                kw_tool.set_knowledge_graphs({
+                    "cancer health care": kg,
+                    "cancer_care": kg  # For backward compatibility
+                })
+                print(f"✅ Loaded knowledge graph: {len(kg.nodes)} nodes, {len(kg.edges)} edges")
+            else:
+                print("⚠️  Failed to retrieve loaded graph")
+        else:
+            print("⚠️  Failed to load graph from file")
+    else:
+        print(f"⚠️  Pre-built graph not found at: {graph_file}")
+        print("   Run 'uv run python src/news_portal/mcp_tools/build_knowledge_graph.py' to create it")
+    
+    # Test 1: Extract keywords using pre-built or dynamically built knowledge graph
+    print("\n🧠 Test 1: Keyword Extraction with Knowledge Graph")
     print("-" * 40)
     
-    # Build knowledge graph for cancer care
-    cancer_documents = [
-        "Precision oncology uses genetic testing to personalize cancer treatment.",
-        "Immunotherapy helps the immune system fight cancer cells effectively.",
-        "Targeted therapies attack specific molecular pathways in cancer cells.",
-        "Biomarkers predict treatment response and disease progression.",
-        "Early detection improves cancer survival rates significantly.",
-        "Liquid biopsies detect cancer DNA in blood samples non-invasively.",
-        "CAR-T cell therapy engineers immune cells to target cancer.",
-        "Checkpoint inhibitors remove brakes on immune system responses."
-    ]
+    # Use the pre-built graph if available, otherwise build dynamically
+    use_prebuilt = kg is not None and len(kg.nodes) > 0
     
-    print("🔧 Building knowledge graph for cancer_care domain...")
-    kg_result = await kg_tool.execute(
-        domain="cancer_care",
-        documents=cancer_documents,
-        max_nodes=15,
-        min_centrality=0.05
-    )
-    
-    if kg_result.get('status') == 'success':
-        print(f"✅ Knowledge graph built: {kg_result.get('nodes_count')} nodes, {kg_result.get('edges_count')} edges")
+    if not use_prebuilt:
+        print("⚠️  No pre-built graph loaded. Building dynamic graph for test purposes...")
+        # Build knowledge graph for cancer care
+        cancer_documents = [
+            "Precision oncology uses genetic testing to personalize cancer treatment.",
+            "Immunotherapy helps the immune system fight cancer cells effectively.",
+            "Targeted therapies attack specific molecular pathways in cancer cells.",
+            "Biomarkers predict treatment response and disease progression.",
+            "Early detection improves cancer survival rates significantly.",
+            "Liquid biopsies detect cancer DNA in blood samples non-invasively.",
+            "CAR-T cell therapy engineers immune cells to target cancer.",
+            "Checkpoint inhibitors remove brakes on immune system responses."
+        ]
         
-        # Set the knowledge graph for the keyword extractor
-        kg = kg_tool.get_knowledge_graph("cancer_care")
-        kw_tool.set_knowledge_graphs({"cancer_care": kg})
-        
-        # Test keyword extraction
-        test_text = "Precision oncology and immunotherapy are revolutionizing cancer treatment through personalized approaches that target specific molecular pathways."
-        
-        print(f"\n📝 Extracting keywords from: {test_text}")
-        
-        result = await kw_tool.execute(
-            text=test_text,
+        print("🔧 Building knowledge graph for cancer_care domain...")
+        kg_result = await kg_tool.execute(
             domain="cancer_care",
-            max_keywords=5,
-            min_centrality=0.01
+            documents=cancer_documents,
+            max_nodes=15,
+            min_centrality=0.05
         )
         
-        print(f"📊 Result: {result.get('status')}")
-        if result.get('status') == 'success':
-            keywords = result.get('keywords', [])
-            print(f"✅ Extracted {len(keywords)} keywords:")
-            for i, kw in enumerate(keywords, 1):
-                print(f"  {i}. {kw.get('keyword')} (centrality: {kw.get('centrality_score', 0):.3f})")
+        if kg_result.get('status') == 'success':
+            print(f"✅ Knowledge graph built: {kg_result.get('nodes_count')} nodes, {kg_result.get('edges_count')} edges")
+            kg = kg_tool.get_knowledge_graph("cancer_care")
+            kw_tool.set_knowledge_graphs({"cancer_care": kg})
         else:
-            print(f"❌ Error: {result.get('message')}")
+            print(f"❌ Failed to build knowledge graph: {kg_result.get('message')}")
+            return
     else:
-        print(f"❌ Failed to build knowledge graph: {kg_result.get('message')}")
+        print("✅ Using pre-built knowledge graph from startup")
+    
+    # Test keyword extraction
+    test_text = "Precision oncology and immunotherapy are revolutionizing cancer treatment through personalized approaches that target specific molecular pathways."
+    
+    print(f"\n📝 Extracting keywords from: {test_text}")
+    
+    result = await kw_tool.execute(
+        text=test_text,
+        domain="cancer_care",
+        max_keywords=5,
+        min_centrality=0.01
+    )
+    
+    print(f"📊 Result: {result.get('status')}")
+    if result.get('status') == 'success':
+        keywords = result.get('keywords', [])
+        print(f"✅ Extracted {len(keywords)} keywords:")
+        for i, kw in enumerate(keywords, 1):
+            print(f"  {i}. {kw.get('keyword')} (centrality: {kw.get('centrality_score', 0):.3f})")
+    else:
+        print(f"❌ Error: {result.get('message')}")
     
     # Test 2: Without knowledge graph (should fail)
     print("\n❌ Test 2: Without Knowledge Graph (Expected Failure)")

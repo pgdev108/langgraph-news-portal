@@ -44,10 +44,87 @@ src_path = os.path.join(os.path.dirname(__file__), '..', '..')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from news_portal.mcp_tools import GlossaryBuilderTool, KnowledgeGraphBuilderTool
+from news_portal.mcp_tools import GlossaryBuilderTool
+from news_portal.mcp_tools.knowledge_graph_builder import KnowledgeGraphBuilderTool
+
+async def test_glossary_builder_with_prebuilt_graph():
+    """Test glossary builder with the pre-built knowledge graph."""
+    print("\n📚 Testing Glossary Builder with Pre-built Knowledge Graph")
+    print("=" * 60)
+    
+    # Load pre-built knowledge graph for cancer health care
+    print("\n🔧 Loading pre-built knowledge graph for 'cancer health care'...")
+    kg_loader = KnowledgeGraphBuilderTool()
+    # Path from tests to mcp_tools/knowledge_graphs
+    graph_file = Path(__file__).parent.parent / "knowledge_graphs" / "cancer_health_care.json"
+    
+    if not graph_file.exists():
+        print(f"❌ Pre-built graph not found at: {graph_file}")
+        print("   Run 'uv run python src/news_portal/mcp_tools/build_knowledge_graph.py' to create it")
+        return
+    
+    success = kg_loader.load_graph(str(graph_file))
+    if not success:
+        print("❌ Failed to load graph from file")
+        return
+    
+    kg = kg_loader.get_knowledge_graph("cancer health care")
+    if not kg:
+        print("⚠️  Failed to retrieve loaded graph")
+        return
+    
+    print(f"✅ Loaded knowledge graph: {len(kg.nodes)} nodes, {len(kg.edges)} edges")
+    
+    # Build glossary from the pre-built graph
+    print(f"\n📚 Step 2: Building glossary from pre-built graph...")
+    glossary_tool = GlossaryBuilderTool()
+    glossary_tool.set_knowledge_graphs({
+        "cancer health care": kg,
+        "cancer_care": kg  # For backward compatibility
+    })
+    
+    # Build glossary from the knowledge graph
+    try:
+        result = await glossary_tool.execute(
+            domain="cancer health care",
+            max_terms=15,
+            min_centrality=0.1
+        )
+        
+        print(f"\n📊 Glossary Building Result:")
+        print(f"Status: {result.get('status', 'unknown')}")
+        
+        if result.get('status') == 'success':
+            glossary_terms = result.get('glossary_terms', [])
+            print(f"✅ Built glossary with {len(glossary_terms)} terms:")
+            
+            for i, term in enumerate(glossary_terms, 1):
+                term_name = term.get('term', 'N/A')
+                definition = term.get('definition', 'N/A')
+                centrality = term.get('centrality_score', 0)
+                print(f"\n  {i:2d}. {term_name}")
+                print(f"      Centrality: {centrality:.3f}")
+                print(f"      Definition: {definition}")
+            
+            # Show statistics
+            centrality_scores = [term.get('centrality_score', 0) for term in glossary_terms]
+            if centrality_scores:
+                print(f"\n📊 Statistics:")
+                print(f"  - Total terms: {len(glossary_terms)}")
+                print(f"  - Average centrality: {sum(centrality_scores)/len(centrality_scores):.3f}")
+                print(f"  - Highest centrality: {max(centrality_scores):.3f}")
+                print(f"  - Lowest centrality: {min(centrality_scores):.3f}")
+                print(f"  - Domain: {result.get('domain', 'N/A')}")
+        else:
+            print(f"❌ Error: {result.get('message', 'Unknown error')}")
+            
+    except Exception as e:
+        print(f"❌ Exception during glossary building: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def test_glossary_builder_with_sample_article():
-    """Test glossary builder with a sample news article."""
+    """Test glossary builder with a sample news article (uses local builder)."""
     print("\n📚 Testing Glossary Builder with Sample News Article")
     print("=" * 60)
     
@@ -204,7 +281,7 @@ async def test_glossary_builder_without_kg():
         print(f"❌ Exception: {e}")
 
 async def test_glossary_builder_via_fastmcp():
-    """Test glossary builder through FastMCP server."""
+    """Test glossary builder through FastMCP server using pre-built graph."""
     print("\n🌐 Testing Glossary Builder via FastMCP Server")
     print("=" * 60)
     
@@ -230,41 +307,14 @@ async def test_glossary_builder_via_fastmcp():
     try:
         async with client:
             print("✅ Connected to FastMCP server")
+            print("ℹ️  Note: Using pre-built knowledge graph loaded at server startup")
             
-            # First, build a knowledge graph
-            print("🔧 Step 1: Building knowledge graph via FastMCP...")
-            kg_documents = [
-                "Precision medicine uses genetic testing to personalize cancer treatment.",
-                "Immunotherapy helps the immune system fight cancer cells.",
-                "Biomarkers predict treatment response and disease progression.",
-                "Targeted therapies attack specific molecular pathways in cancer cells."
-            ]
-            
-            kg_result = await client.call_tool(
-                "build_knowledge_graph",
-                {
-                    "domain": "precision_medicine",
-                    "documents": kg_documents,
-                    "max_nodes": 20,
-                    "min_centrality": 0.05
-                }
-            )
-            
-            kg_result_dict = parse_fastmcp_result(kg_result)
-            print(f"📊 Knowledge Graph Result: {kg_result_dict.get('status')}")
-            
-            if kg_result_dict.get('status') != 'success':
-                print(f"❌ Failed to build knowledge graph: {kg_result_dict.get('message')}")
-                return
-            
-            print(f"✅ Knowledge graph built: {kg_result_dict.get('nodes_count')} nodes, {kg_result_dict.get('edges_count')} edges")
-            
-            # Now build the glossary
-            print("📚 Step 2: Building glossary via FastMCP...")
+            # Build the glossary using the pre-built graph
+            print("📚 Building glossary via FastMCP using pre-built graph...")
             result = await client.call_tool(
                 "build_glossary",
                 {
-                    "domain": "precision_medicine",
+                    "domain": "cancer health care",  # Use the pre-built domain
                     "max_terms": 10,
                     "min_centrality": 0.1
                 }
@@ -351,24 +401,27 @@ async def main():
     print("📚 Glossary Builder Tool Test Suite")
     print("=" * 60)
     print("This will test the glossary builder tool in various scenarios.")
-    print("The tool requires a knowledge graph to be built first.")
+    print("The tool uses a pre-built knowledge graph loaded at startup.")
     print("=" * 60)
     
-    # Test 1: With sample article
+    # Test 1: With pre-built graph
+    await test_glossary_builder_with_prebuilt_graph()
+    
+    # Test 2: With sample article (builds local graph)
     await test_glossary_builder_with_sample_article()
     
-    # Test 2: Without knowledge graph
+    # Test 3: Without knowledge graph
     await test_glossary_builder_without_kg()
     
-    # Test 3: Via FastMCP server
+    # Test 4: Via FastMCP server
     await test_glossary_builder_via_fastmcp()
     
-    # Test 4: Different centrality thresholds
+    # Test 5: Different centrality thresholds
     await test_different_centrality_thresholds()
     
     print("\n✅ Glossary builder testing completed!")
     print("\n💡 Key findings:")
-    print("  📚 Glossary builder requires knowledge graph to be built first")
+    print("  📚 Glossary builder uses pre-built knowledge graph at server startup")
     print("  📊 Centrality thresholds control glossary quality and size")
     print("  🌐 FastMCP server integration works properly")
     print("  📝 Creates high-value glossaries from domain knowledge")

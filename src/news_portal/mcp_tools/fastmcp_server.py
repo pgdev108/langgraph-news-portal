@@ -51,39 +51,76 @@ cover_image_tool = CoverImageGeneratorTool()
 # Shared knowledge graph storage
 shared_knowledge_graphs = {}
 
-# Create a knowledge graph for testing
-def create_test_knowledge_graph():
-    """Create a test knowledge graph."""
-    mock_nodes = {
-        "cancer_care": KnowledgeGraphNode(id="cancer_care", label="cancer care", centrality_score=0.95),
-        "precision_oncology": KnowledgeGraphNode(id="precision_oncology", label="precision oncology", centrality_score=0.90),
-        "early_detection": KnowledgeGraphNode(id="early_detection", label="early detection", centrality_score=0.85),
-        "immunotherapy": KnowledgeGraphNode(id="immunotherapy", label="immunotherapy", centrality_score=0.80),
-        "personalized_medicine": KnowledgeGraphNode(id="personalized_medicine", label="personalized medicine", centrality_score=0.75)
-    }
-    
-    mock_edges = [
-        KnowledgeGraphEdge(source="cancer_care", target="precision_oncology", relation="includes"),
-        KnowledgeGraphEdge(source="precision_oncology", target="personalized_medicine", relation="enables"),
-        KnowledgeGraphEdge(source="early_detection", target="cancer_care", relation="improves"),
-        KnowledgeGraphEdge(source="immunotherapy", target="cancer_care", relation="treats")
-    ]
-    
-    mock_kg = KnowledgeGraph(
-        nodes=mock_nodes,
-        edges=mock_edges,
-        domain="cancer_care",
-        created_at="2024-01-01"
-    )
-    
-    return mock_kg
+# Load pre-built knowledge graph at startup
+def load_knowledge_graph():
+    """Load the pre-built knowledge graph for 'cancer health care'."""
+    try:
+        graph_file = Path(__file__).parent / "knowledge_graphs" / "cancer_health_care.json"
+        
+        if graph_file.exists():
+            print(f"📊 Loading knowledge graph from: {graph_file}")
+            
+            # Load JSON file
+            import json
+            with open(graph_file, 'r') as f:
+                graph_data = json.load(f)
+            
+            # Restore nodes
+            nodes = {}
+            for node_data in graph_data.get("nodes", []):
+                node = KnowledgeGraphNode(
+                    id=node_data["id"],
+                    label=node_data["label"],
+                    node_type=node_data.get("node_type", "concept"),
+                    centrality_score=node_data.get("centrality_score", 0.0)
+                )
+                nodes[node.id] = node
+            
+            # Restore edges
+            edges = []
+            for edge_data in graph_data.get("edges", []):
+                edge = KnowledgeGraphEdge(
+                    source=edge_data["source"],
+                    target=edge_data["target"],
+                    relation=edge_data.get("relation", ""),
+                    weight=edge_data.get("weight", 1.0)
+                )
+                edges.append(edge)
+            
+            # Create knowledge graph
+            from datetime import datetime
+            kg = KnowledgeGraph(
+                nodes=nodes,
+                edges=edges,
+                domain=graph_data.get("domain", "unknown"),
+                created_at=graph_data.get("created_at", str(datetime.now()))
+            )
+            
+            # Store in memory
+            shared_knowledge_graphs["cancer health care"] = kg
+            shared_knowledge_graphs["cancer_care"] = kg  # Backward compatibility
+            
+            # Set for the cover image tool
+            cover_image_tool.set_knowledge_graphs({
+                "cancer health care": kg,
+                "cancer_care": kg
+            })
+            
+            print(f"✅ Loaded knowledge graph: {len(kg.nodes)} nodes, {len(kg.edges)} edges")
+            print(f"✅ Available domains: {list(shared_knowledge_graphs.keys())}")
+            return True
+        else:
+            print(f"⚠️  Knowledge graph not found at: {graph_file}")
+            print(f"   Run 'uv run python src/news_portal/mcp_tools/build_knowledge_graph.py' to create it")
+            return False
+    except Exception as e:
+        print(f"⚠️  Error loading knowledge graph: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
-# Set up the knowledge graph
-test_kg = create_test_knowledge_graph()
-print(f"✅ Created test knowledge graph with {len(test_kg.nodes)} nodes")
-cover_image_tool.set_knowledge_graphs({"cancer_care": test_kg})
-print(f"✅ Set knowledge graphs for cover image tool")
-print(f"✅ Available domains: {list(cover_image_tool.knowledge_graphs.keys())}")
+# Load the knowledge graph at startup
+load_knowledge_graph()
 
 @mcp.tool
 def generate_cover_image(
@@ -158,78 +195,6 @@ def generate_cover_image(
             "message": f"Cover image generation failed: {str(e)}"
         }
 
-@mcp.tool
-def build_knowledge_graph(
-    domain: str,
-    documents: list,
-    max_nodes: int = 50,
-    min_centrality: float = 0.05
-) -> dict:
-    """
-    Build a domain-specific knowledge graph from documents.
-    
-    Args:
-        domain: The domain name (e.g., 'cancer_care', 'finance', 'law')
-        documents: List of documents to analyze
-        max_nodes: Maximum number of nodes to generate
-        min_centrality: Minimum centrality threshold
-    
-    Returns:
-        Dictionary with knowledge graph metadata
-    """
-    try:
-        from news_portal.mcp_tools import KnowledgeGraphBuilderTool
-        
-        kg_tool = KnowledgeGraphBuilderTool()
-        
-        # Run the async function with proper event loop handling
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        lambda: asyncio.run(
-                            kg_tool.execute(
-                                domain=domain,
-                                documents=documents,
-                                max_nodes=max_nodes,
-                                min_centrality=min_centrality
-                            )
-                        )
-                    )
-                    result = future.result()
-            else:
-                result = loop.run_until_complete(
-                    kg_tool.execute(
-                        domain=domain,
-                        documents=documents,
-                        max_nodes=max_nodes,
-                        min_centrality=min_centrality
-                    )
-                )
-        except RuntimeError:
-            result = asyncio.run(
-                kg_tool.execute(
-                    domain=domain,
-                    documents=documents,
-                    max_nodes=max_nodes,
-                    min_centrality=min_centrality
-                )
-            )
-        
-        # If successful, store the knowledge graph in shared storage
-        if result.get("status") == "success":
-            kg = kg_tool.get_knowledge_graph(domain)
-            shared_knowledge_graphs[domain] = kg
-            cover_image_tool.set_knowledge_graphs({domain: kg})
-        
-        return result
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Knowledge graph building failed: {str(e)}"
-        }
 
 @mcp.tool
 def extract_keywords(
@@ -387,9 +352,10 @@ if __name__ == "__main__":
     print("=" * 50)
     print("Available tools:")
     print("  - generate_cover_image: Generate contextual cover images")
-    print("  - build_knowledge_graph: Build domain knowledge graphs")
     print("  - extract_keywords: Extract high-centrality keywords")
     print("  - build_glossary: Build domain glossaries")
+    print("=" * 50)
+    print("ℹ️  Note: Knowledge graph loaded at startup from JSON file")
     print("=" * 50)
     
     mcp.run()
