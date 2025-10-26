@@ -388,10 +388,18 @@ async def chief_editor_async(state: PortalState) -> PortalState:
         cover_image_result = await generate_portal_cover_image(major_editorial, "cancer_care")
         
         if cover_image_result and cover_image_result.get('status') == 'success':
-            print(f"✅ Portal cover generated: {cover_image_result.get('image_url')}")
-            # Use local image path if available, otherwise fall back to URL
-            portal_cover_path = cover_image_result.get('local_image_path') or cover_image_result.get('image_url')
-            print(f"✅ Portal cover saved locally: {portal_cover_path}")
+            # Get the Cloudinary URL (primary) or fall back to local path
+            cloudinary_url = cover_image_result.get('cloudinary_url') or cover_image_result.get('image_url')
+            local_path = cover_image_result.get('local_image_path')
+            
+            # Prefer Cloudinary URL, fallback to local path
+            portal_cover_path = cloudinary_url if cloudinary_url and cloudinary_url.startswith('https://') else local_path
+            
+            print(f"✅ Portal cover generated")
+            if portal_cover_path and portal_cover_path.startswith('https://'):
+                print(f"✅ Cloudinary URL: {portal_cover_path}")
+            else:
+                print(f"✅ Local path: {portal_cover_path}")
         else:
             print("⚠️ Portal cover generation failed, continuing without cover image")
             portal_cover_path = None

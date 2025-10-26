@@ -17,7 +17,6 @@ except Exception:
     pass
 
 st.set_page_config(page_title="Cancer Health Care News Portal", layout="wide")
-st.title("🧬 Cancer Health Care News Portal")
 
 # Session state
 if "results" not in st.session_state: st.session_state["results"] = None
@@ -26,6 +25,30 @@ if "active_menu" not in st.session_state: st.session_state["active_menu"] = "Hom
 if "running" not in st.session_state: st.session_state["running"] = False
 if "loaded_from_file" not in st.session_state: st.session_state["loaded_from_file"] = False
 if "news_article_count" not in st.session_state: st.session_state["news_article_count"] = NEWS_ARTICLE_COUNT
+
+# Display portal cover image before header (if available)
+def display_portal_cover():
+    """Display the portal cover image if available."""
+    if st.session_state.get("results") and st.session_state["results"].get("final"):
+        final = st.session_state["results"]["final"]
+        home = final.get("home", {}) or {}
+        portal_cover_path = home.get("portal_cover_path")
+        
+        if portal_cover_path:
+            # Check if it's a local path or URL
+            if portal_cover_path.startswith(('http://', 'https://')):
+                st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
+            else:
+                # It's a local file path
+                if os.path.exists(portal_cover_path):
+                    st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
+                else:
+                    st.warning(f"Cover image not found: {portal_cover_path}")
+            st.markdown("---")
+
+# Display cover image before title
+display_portal_cover()
+st.title("🧬 Cancer Health Care News Portal")
 
 def _read_results_file():
     try:
@@ -88,21 +111,6 @@ def render_home(final: dict):
     home = final.get("home", {}) or {}
     best_articles = home.get("best_articles", []) or []
     main_editorial = home.get("main_editorial", "") or ""
-    portal_cover_path = home.get("portal_cover_path")
-    
-    # Display portal cover image if available
-    if portal_cover_path:
-        st.markdown("### 🖼️ Portal Cover")
-        # Check if it's a local path or URL
-        if portal_cover_path.startswith(('http://', 'https://')):
-            st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
-        else:
-            # It's a local file path
-            if os.path.exists(portal_cover_path):
-                st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
-            else:
-                st.warning(f"Cover image file not found: {portal_cover_path}")
-        st.markdown("---")
     
     st.markdown("### Featured Articles")
     if best_articles:
@@ -155,6 +163,7 @@ if st.session_state["results"] is None and not st.session_state["loaded_from_fil
     if data:
         st.session_state["results"] = data
         st.session_state["loaded_from_file"] = True
+        st.rerun()  # Rerun to display cover image
 
 debug = st.toggle("Debug", value=False)
 
