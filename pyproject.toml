@@ -5,9 +5,11 @@ description = "Cancer Health Care News Portal"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "cloudinary>=1.44.1",
     "fastmcp>=2.12.5",
     "langchain>=0.3.27",
     "langchain-community>=0.3.31",
+    "langchain-mcp-adapters>=0.1.11",
     "langchain-openai>=0.3.35",
     "langgraph>=0.6.10",
     "mcp>=1.16.0",

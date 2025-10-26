@@ -80,7 +80,10 @@ def create_test_knowledge_graph():
 
 # Set up the knowledge graph
 test_kg = create_test_knowledge_graph()
+print(f"✅ Created test knowledge graph with {len(test_kg.nodes)} nodes")
 cover_image_tool.set_knowledge_graphs({"cancer_care": test_kg})
+print(f"✅ Set knowledge graphs for cover image tool")
+print(f"✅ Available domains: {list(cover_image_tool.knowledge_graphs.keys())}")
 
 @mcp.tool
 def generate_cover_image(
@@ -104,6 +107,9 @@ def generate_cover_image(
         Dictionary with image URL, metadata, and reasoning steps
     """
     try:
+        print(f"🔍 Debug: generate_cover_image called with domain: {domain}")
+        print(f"🔍 Debug: Available knowledge graphs: {list(cover_image_tool.knowledge_graphs.keys())}")
+        
         # Run the async function in a new event loop
         import asyncio
         try:

@@ -297,6 +297,10 @@ def process_all_subtopics(state: PortalState) -> PortalState:
 # ---------- Chief Editor Node ----------
 def chief_editor(state: PortalState) -> PortalState:
     """Generate final home page content."""
+    return asyncio.run(chief_editor_async(state))
+
+async def chief_editor_async(state: PortalState) -> PortalState:
+    """Generate final home page content."""
     chief_start = time.time()
     print("📝 Chief Editor starting...")
     print("📝 Generating final editorial...")
@@ -377,9 +381,28 @@ def chief_editor(state: PortalState) -> PortalState:
         print(f"🔍 Debug: Exception type: {type(e).__name__}")
         major_editorial = f"Comprehensive editorial on {state['topic']} covering all sub-topics. Editorial generation failed due to technical issues: {str(e)[:100]}..."
     
+    # Generate portal cover image using MCP client
+    print("🖼️ Generating portal cover image...")
+    try:
+        from news_portal.mcp_client_service import generate_portal_cover_image
+        cover_image_result = await generate_portal_cover_image(major_editorial, "cancer_care")
+        
+        if cover_image_result and cover_image_result.get('status') == 'success':
+            print(f"✅ Portal cover generated: {cover_image_result.get('image_url')}")
+            # Use local image path if available, otherwise fall back to URL
+            portal_cover_path = cover_image_result.get('local_image_path') or cover_image_result.get('image_url')
+            print(f"✅ Portal cover saved locally: {portal_cover_path}")
+        else:
+            print("⚠️ Portal cover generation failed, continuing without cover image")
+            portal_cover_path = None
+    except Exception as e:
+        print(f"⚠️ Portal cover generation error: {e}")
+        portal_cover_path = None
+    
     state["home"] = {
         "best_articles": best_articles,  # Show one article from each subtopic (5 total)
-        "main_editorial": major_editorial
+        "main_editorial": major_editorial,
+        "portal_cover_path": portal_cover_path
     }
     
     chief_time = time.time() - chief_start

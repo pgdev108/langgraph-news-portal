@@ -8,7 +8,24 @@ Tool for generating contextually relevant cover images using Tool-externally, Ag
 
 import json
 import logging
+import os
+from pathlib import Path
 from typing import Dict, Any, List
+from datetime import datetime
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+import cloudinary
+import cloudinary.uploader
+
+# Configure Cloudinary immediately at module level
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME', ''),
+    api_key=os.getenv('CLOUDINARY_API_KEY', ''),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET', '')
+)
 
 from .mcp_tools_base import (
     BaseMCPTool, KnowledgeGraph, LLMProcessor, ImageProcessor, Config
@@ -23,6 +40,77 @@ class CoverImageGeneratorTool(BaseMCPTool):
         super().__init__(openai_client)
         self.llm_processor = LLMProcessor(self.openai_client)
         self.image_processor = ImageProcessor()
+        
+        # Create generated_images directory
+        self.generated_images_dir = Path("generated_images")
+        self.generated_images_dir.mkdir(exist_ok=True)
+    
+    def _setup_cloudinary(self):
+        """Setup Cloudinary configuration - no longer needed, configured at module level."""
+        pass  # Cloudinary is now configured at module import time
+    
+    
+    def _upload_to_cloudinary(self, local_image_path: str) -> str:
+        """
+        Upload image to Cloudinary and return the secure URL.
+        
+        Args:
+            local_image_path: Path to the local image file
+            
+        Returns:
+            Cloudinary secure URL or local path if upload fails
+        """
+        try:
+            logger.info(f"Uploading image to Cloudinary: {local_image_path}")
+            response = cloudinary.uploader.upload(local_image_path)
+            cloudinary_url = response['secure_url']
+            logger.info(f"✅ Image uploaded to Cloudinary: {cloudinary_url}")
+            return cloudinary_url
+        except Exception as e:
+            logger.error(f"❌ Failed to upload to Cloudinary: {e}")
+            return local_image_path  # Fallback to local path
+    
+    def _save_image_locally(self, image_data: str, dimensions: str) -> str:
+        """
+        Save image data to local file in generated_images folder.
+        
+        Args:
+            image_data: Image data as base64 string
+            dimensions: Image dimensions for filename
+            
+        Returns:
+            Local file path
+        """
+        try:
+            # Generate filename with timestamp and dimensions
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"cover_image_{dimensions}_{timestamp}.png"
+            local_path = self.generated_images_dir / filename
+            
+            # Convert base64 string back to bytes and save
+            import base64
+            image_bytes = base64.b64decode(image_data)
+            
+            with open(local_path, 'wb') as f:
+                f.write(image_bytes)
+            
+            logger.info(f"✅ Image saved locally: {local_path}")
+            return str(local_path)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to save image locally: {e}")
+            # Create a fallback filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            fallback_path = self.generated_images_dir / f"cover_image_{timestamp}.png"
+            try:
+                import base64
+                image_bytes = base64.b64decode(image_data)
+                with open(fallback_path, 'wb') as f:
+                    f.write(image_bytes)
+                return str(fallback_path)
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback save also failed: {fallback_error}")
+                return None
     
     def get_tool_definition(self) -> Dict[str, Any]:
         """Return the MCP tool definition."""
@@ -115,9 +203,16 @@ class CoverImageGeneratorTool(BaseMCPTool):
                 image_result["image_url"]
             )
             
+            # Step 6: Save image locally and upload to Cloudinary
+            logger.info("Step 6: Saving image locally and uploading to Cloudinary")
+            local_image_path = self._save_image_locally(image_data, dimensions)
+            cloudinary_url = self._upload_to_cloudinary(local_image_path)
+            
             return {
                 "status": "success",
-                "image_url": image_result["image_url"],
+                "image_url": cloudinary_url,  # Return Cloudinary URL as primary URL
+                "original_url": image_result["image_url"],  # Keep original URL for reference
+                "local_path": local_image_path,  # Local file path
                 "image_data": image_data,
                 "prompt_used": image_prompt,
                 "keywords_extracted": keywords_result["keywords"],
@@ -130,7 +225,8 @@ class CoverImageGeneratorTool(BaseMCPTool):
                     "Analyzed editorial context and tone",
                     "Generated contextual prompt with guardrails",
                     f"Created image using {image_engine}",
-                    "Processed and encoded final image"
+                    "Processed and encoded final image",
+                    "Saved image locally and uploaded to Cloudinary"
                 ]
             }
             

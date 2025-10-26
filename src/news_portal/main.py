@@ -1,4 +1,5 @@
 import json
+import os
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -87,6 +88,22 @@ def render_home(final: dict):
     home = final.get("home", {}) or {}
     best_articles = home.get("best_articles", []) or []
     main_editorial = home.get("main_editorial", "") or ""
+    portal_cover_path = home.get("portal_cover_path")
+    
+    # Display portal cover image if available
+    if portal_cover_path:
+        st.markdown("### 🖼️ Portal Cover")
+        # Check if it's a local path or URL
+        if portal_cover_path.startswith(('http://', 'https://')):
+            st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
+        else:
+            # It's a local file path
+            if os.path.exists(portal_cover_path):
+                st.image(portal_cover_path, caption="AI-Generated Portal Cover", use_column_width=True)
+            else:
+                st.warning(f"Cover image file not found: {portal_cover_path}")
+        st.markdown("---")
+    
     st.markdown("### Featured Articles")
     if best_articles:
         for a in best_articles:
