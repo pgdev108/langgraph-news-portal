@@ -407,10 +407,33 @@ async def chief_editor_async(state: PortalState) -> PortalState:
         print(f"⚠️ Portal cover generation error: {e}")
         portal_cover_path = None
     
+    # Generate glossary using MCP client (after cover image)
+    print("📚 Generating glossary...")
+    glossary_data = None
+    try:
+        from news_portal.mcp_client_service import generate_glossary
+        glossary_result = await generate_glossary("cancer_care", max_terms=20, min_centrality=0.1)
+        
+        if glossary_result and glossary_result.get('status') == 'success':
+            glossary_terms = glossary_result.get('glossary_terms', [])
+            glossary_data = {
+                "terms": glossary_terms,
+                "total_terms": glossary_result.get('total_terms', 0),
+                "domain": glossary_result.get('domain', 'cancer_care')
+            }
+            print(f"✅ Glossary generated with {len(glossary_terms)} terms")
+        else:
+            print("⚠️ Glossary generation failed, continuing without glossary")
+            glossary_data = None
+    except Exception as e:
+        print(f"⚠️ Glossary generation error: {e}")
+        glossary_data = None
+    
     state["home"] = {
         "best_articles": best_articles,  # Show one article from each subtopic (5 total)
         "main_editorial": major_editorial,
-        "portal_cover_path": portal_cover_path
+        "portal_cover_path": portal_cover_path,
+        "glossary": glossary_data
     }
     
     chief_time = time.time() - chief_start

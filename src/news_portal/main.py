@@ -126,6 +126,42 @@ def render_home(final: dict):
     else:
         st.info("Main editorial not available.")
 
+def render_glossary(final: dict):
+    """Render the glossary page."""
+    st.subheader("📚 Glossary")
+    
+    home = final.get("home", {}) or {}
+    glossary_data = home.get("glossary")
+    
+    if not glossary_data:
+        st.info("No glossary available. Run the agents to generate a glossary.")
+        return
+    
+    glossary_terms = glossary_data.get("terms", [])
+    total_terms = glossary_data.get("total_terms", 0)
+    domain = glossary_data.get("domain", "cancer_care")
+    
+    st.markdown(f"#### Domain: {domain}")
+    st.markdown(f"**Total terms:** {total_terms}")
+    
+    if glossary_terms:
+        st.markdown("---")
+        st.markdown("### Glossary Terms")
+        
+        # Sort by centrality (highest first)
+        sorted_terms = sorted(glossary_terms, key=lambda x: x.get('centrality_score', 0), reverse=True)
+        
+        for i, term in enumerate(sorted_terms, 1):
+            term_name = term.get('term', 'N/A')
+            definition = term.get('definition', 'No definition available')
+            centrality = term.get('centrality_score', 0)
+            node_type = term.get('node_type', 'concept')
+            
+            with st.container(border=True):
+                st.markdown(f"**{i}. {term_name}**")
+                st.markdown(f"*Type:* {node_type} | *Centrality:* {centrality:.3f}")
+                st.markdown(definition)
+
 def render_subtopic(final: dict, subtopic: str):
     st.subheader(f"📚 {subtopic}")
     ps = (final.get("per_subtopic", {}) or {}).get(subtopic, {}) or {}
@@ -177,6 +213,8 @@ with nav:
     for sub in SUBTOPICS:
         if st.button(sub, use_container_width=True, disabled=st.session_state["running"]):
             st.session_state["active_menu"] = sub
+    if st.button("Glossary 📚", use_container_width=True, disabled=st.session_state["running"]):
+        st.session_state["active_menu"] = "Glossary"
     if RESULT_FILE.exists():
         ts = datetime.fromtimestamp(RESULT_FILE.stat().st_mtime)
         st.caption(f"Saved: {ts.strftime('%Y-%m-%d %H:%M:%S')} → {RESULT_FILE}")
@@ -198,5 +236,7 @@ with content:
             active = st.session_state.get("active_menu", "Home")
             if active == "Home":
                 render_home(final)
+            elif active == "Glossary":
+                render_glossary(final)
             else:
                 render_subtopic(final, active)

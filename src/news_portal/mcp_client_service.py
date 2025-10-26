@@ -40,6 +40,64 @@ class MCPClientService:
         if self.client:
             await self.client.__aexit__(exc_type, exc_val, exc_tb)
     
+    async def generate_glossary(
+        self,
+        domain: str = "cancer_care",
+        max_terms: int = 20,
+        min_centrality: float = 0.1
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate a glossary using the pre-built knowledge graph.
+        
+        Args:
+            domain: Domain context (default: cancer_care)
+            max_terms: Maximum number of terms to include
+            min_centrality: Minimum centrality threshold
+            
+        Returns:
+            Dictionary with glossary data or None if failed
+        """
+        try:
+            if not self.client:
+                logger.error("MCP client not initialized")
+                return None
+            
+            logger.info(f"Generating glossary for domain: {domain}")
+            
+            # Call the MCP tool using fastmcp client
+            result = await self.client.call_tool(
+                "build_glossary",
+                {
+                    "domain": domain,
+                    "max_terms": max_terms,
+                    "min_centrality": min_centrality
+                }
+            )
+            
+            # Parse the result exactly like the cover image generation
+            if hasattr(result, 'content') and result.content:
+                result_data = result.content[0].text
+                try:
+                    parsed_result = json.loads(result_data)
+                    
+                    if parsed_result.get('status') == 'success':
+                        logger.info(f"✅ Glossary generated with {parsed_result.get('total_terms', 0)} terms")
+                        return parsed_result
+                    else:
+                        logger.error(f"❌ Glossary generation failed: {parsed_result.get('message')}")
+                        return None
+                        
+                except json.JSONDecodeError:
+                    logger.error(f"❌ Failed to parse MCP result: {result_data}")
+                    return None
+            else:
+                logger.error("❌ No content in MCP result")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Glossary generation error: {e}")
+            return None
+    
     async def generate_portal_cover_image(
         self, 
         editorial_text: str, 
@@ -118,7 +176,7 @@ class MCPClientService:
             logger.error(f"❌ Portal cover generation error: {e}")
             return None
 
-# Convenience function for easy integration
+# Convenience functions for easy integration
 async def generate_portal_cover_image(editorial_text: str, domain: str = "cancer_care", dimensions: str = "1792x1024") -> Optional[Dict[str, Any]]:
     """
     Convenience function to generate a portal cover image.
@@ -133,3 +191,18 @@ async def generate_portal_cover_image(editorial_text: str, domain: str = "cancer
     """
     async with MCPClientService() as service:
         return await service.generate_portal_cover_image(editorial_text, domain, dimensions=dimensions)
+
+async def generate_glossary(domain: str = "cancer_care", max_terms: int = 20, min_centrality: float = 0.1) -> Optional[Dict[str, Any]]:
+    """
+    Convenience function to generate a glossary.
+    
+    Args:
+        domain: Domain context (default: cancer_care)
+        max_terms: Maximum number of terms (default: 20)
+        min_centrality: Minimum centrality threshold (default: 0.1)
+        
+    Returns:
+        Dictionary with glossary data or None if failed
+    """
+    async with MCPClientService() as service:
+        return await service.generate_glossary(domain, max_terms, min_centrality)
