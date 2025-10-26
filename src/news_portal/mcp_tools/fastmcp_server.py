@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-FastMCP Server for Cover Image Generation
-========================================
+FastMCP Server for MCP Tools
+=============================
 
-Simple MCP server using FastMCP for cover image generation.
+MCP server using FastMCP for various domain intelligence tools.
 """
 
 import asyncio
@@ -35,7 +35,7 @@ else:
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from fastmcp import FastMCP
-from news_portal.mcp import (
+from news_portal.mcp_tools import (
     CoverImageGeneratorTool,
     KnowledgeGraph,
     KnowledgeGraphNode,
@@ -178,7 +178,7 @@ def build_knowledge_graph(
         Dictionary with knowledge graph metadata
     """
     try:
-        from news_portal.mcp import KnowledgeGraphBuilderTool
+        from news_portal.mcp_tools import KnowledgeGraphBuilderTool
         
         kg_tool = KnowledgeGraphBuilderTool()
         
@@ -251,7 +251,7 @@ def extract_keywords(
         Dictionary with extracted keywords and metadata
     """
     try:
-        from news_portal.mcp import KeywordExtractorTool
+        from news_portal.mcp_tools import KeywordExtractorTool
         
         kw_tool = KeywordExtractorTool()
         
@@ -327,7 +327,7 @@ def build_glossary(
         Dictionary with glossary terms and definitions
     """
     try:
-        from news_portal.mcp import GlossaryBuilderTool
+        from news_portal.mcp_tools import GlossaryBuilderTool
         
         glossary_tool = GlossaryBuilderTool()
         

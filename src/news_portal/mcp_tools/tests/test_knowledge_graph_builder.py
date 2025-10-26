@@ -34,7 +34,7 @@ else:
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from news_portal.mcp import KnowledgeGraphBuilderTool
+from news_portal.mcp_tools import KnowledgeGraphBuilderTool
 
 async def test_knowledge_graph_building_fixed():
     """Test knowledge graph building with fresh tool instances for each test."""

@@ -6,7 +6,7 @@ A clean, modular FastMCP server providing intelligent domain analysis tools.
 
 ### 1. Start the FastMCP Server
 ```bash
-fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002
+fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002
 ```
 
 ### 2. Test the Tools

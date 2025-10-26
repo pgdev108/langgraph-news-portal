@@ -66,7 +66,7 @@ async def test_mcp_client():
 
 if __name__ == "__main__":
     print("Make sure the FastMCP server is running on http://localhost:8002")
-    print("Command: fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002")
+    print("Command: fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002")
     print()
     
     asyncio.run(test_mcp_client())

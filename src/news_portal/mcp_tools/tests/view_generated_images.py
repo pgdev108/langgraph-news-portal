@@ -207,7 +207,7 @@ async def generate_and_view_image():
     except Exception as e:
         print(f"❌ Error connecting to server: {e}")
         print("Make sure the FastMCP server is running:")
-        print("  fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002")
+        print("  fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002")
 
 async def generate_multiple_styles():
     """Generate images with different styles."""
@@ -265,7 +265,7 @@ async def main():
     print("🖼️  Cover Image Generator and Viewer")
     print("=" * 50)
     print("Make sure the server is running:")
-    print("  fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002")
+    print("  fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002")
     print("=" * 50)
     
     # Generate and view a single image

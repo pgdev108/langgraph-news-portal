@@ -142,7 +142,7 @@ async def test_cover_image_generation():
     except Exception as e:
         print(f"❌ Error connecting to server: {e}")
         print("Make sure the FastMCP server is running:")
-        print("  fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002")
+        print("  fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002")
 
 async def test_knowledge_graph_building():
     """Test the knowledge graph building tool."""
@@ -230,7 +230,7 @@ async def main():
     print("🚀 FastMCP Client Test Suite")
     print("=" * 50)
     print("Make sure the server is running:")
-    print("  fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8002")
+    print("  fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8002")
     print("=" * 50)
     
     # Test cover image generation (this should work with the mock KG)

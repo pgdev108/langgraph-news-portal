@@ -44,7 +44,7 @@ src_path = os.path.join(os.path.dirname(__file__), '..', '..')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from news_portal.mcp import GlossaryBuilderTool, KnowledgeGraphBuilderTool
+from news_portal.mcp_tools import GlossaryBuilderTool, KnowledgeGraphBuilderTool
 
 async def test_glossary_builder_with_sample_article():
     """Test glossary builder with a sample news article."""

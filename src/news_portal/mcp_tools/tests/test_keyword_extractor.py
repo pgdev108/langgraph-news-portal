@@ -34,7 +34,7 @@ else:
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from news_portal.mcp import KeywordExtractorTool, KnowledgeGraphBuilderTool
+from news_portal.mcp_tools import KeywordExtractorTool, KnowledgeGraphBuilderTool
 
 async def test_keyword_extraction():
     """Test keyword extraction with various scenarios."""

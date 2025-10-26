@@ -10,7 +10,7 @@ This guide shows how to use the FastMCP server for domain intelligence tools, in
 
 ```bash
 # In one terminal, start the server
-fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8000
+fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8000
 ```
 
 The server will start and listen on `http://localhost:8000`. You should see output like:
@@ -194,7 +194,7 @@ The server logs all operations to stderr, so it won't interfere with the MCP pro
 
 ### Client Can't Connect
 
-1. Make sure the server is running: `fastmcp run src/news_portal/mcp/fastmcp_server.py:mcp --transport http --port 8000`
+1. Make sure the server is running: `fastmcp run src/news_portal/mcp_tools/fastmcp_server.py:mcp --transport http --port 8000`
 2. Check that the server is listening on `http://localhost:8000`
 3. Verify the client URL matches: `Client("http://localhost:8000/mcp")`
 
