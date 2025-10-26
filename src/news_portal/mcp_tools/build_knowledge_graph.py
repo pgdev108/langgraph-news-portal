@@ -67,8 +67,8 @@ def build_and_save_knowledge_graph():
     result = asyncio.run(builder.execute(
         domain="cancer health care",
         documents=documents,
-        max_nodes=100,
-        min_centrality=0.05
+        max_nodes=50,
+        min_centrality=0.01
     ))
     
     if result.get("status") == "success":

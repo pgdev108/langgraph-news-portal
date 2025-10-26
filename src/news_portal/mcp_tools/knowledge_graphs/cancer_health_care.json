@@ -1,49 +1,31 @@
 {
   "domain": "cancer health care",
-  "created_at": "2025-10-26 09:17:26.349246",
+  "created_at": "2025-10-26 09:42:35.182786",
   "version": "1.0",
   "nodes": [
     {
-      "id": "treatment option",
-      "label": "treatment option",
+      "id": "cancer",
+      "label": "cancer",
       "node_type": "concept",
-      "centrality_score": 0.07057461289389759
+      "centrality_score": 0.04032676641355408
     },
     {
-      "id": "targeted therapy",
-      "label": "targeted therapy",
+      "id": "group of diseases",
+      "label": "group of diseases",
       "node_type": "concept",
-      "centrality_score": 0.08931414765136028
+      "centrality_score": 0.425659152833821
     },
     {
-      "id": "research",
-      "label": "research",
+      "id": "patient outcomes",
+      "label": "patient outcomes",
       "node_type": "concept",
-      "centrality_score": 0.2599943641495399
+      "centrality_score": 0.011346627596928978
     },
     {
-      "id": "clinical trials",
-      "label": "clinical trials",
+      "id": "cancer risk",
+      "label": "cancer risk",
       "node_type": "concept",
-      "centrality_score": 0.14996083080019956
-    },
-    {
-      "id": "biomarker discovery",
-      "label": "biomarker discovery",
-      "node_type": "concept",
-      "centrality_score": 0.15023110107046983
-    },
-    {
-      "id": "drug development",
-      "label": "drug development",
-      "node_type": "concept",
-      "centrality_score": 0.14996083080019956
-    },
-    {
-      "id": "new treatments",
-      "label": "new treatments",
-      "node_type": "concept",
-      "centrality_score": 0.17397371821991242
+      "centrality_score": 0.013909241714588842
     }
   ],
   "edges": [
@@ -51,535 +33,351 @@
       "source": "cancer",
       "target": "group of diseases",
       "relation": "is_a",
-      "weight": 1.0
-    },
-    {
-      "source": "uncontrolled growth",
-      "target": "cancer",
-      "relation": "characterizes",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "is_a"
     },
     {
       "source": "abnormal cells",
-      "target": "cancer",
-      "relation": "spread",
-      "weight": 1.0
+      "target": "uncontrolled growth",
+      "relation": "characterized_by",
+      "weight": 1.0,
+      "edge_type": "characterized_by"
+    },
+    {
+      "source": "abnormal cells",
+      "target": "spread",
+      "relation": "characterized_by",
+      "weight": 1.0,
+      "edge_type": "characterized_by"
     },
     {
       "source": "cancer cells",
       "target": "surrounding tissues",
-      "relation": "invade",
-      "weight": 1.0
+      "relation": "can_invade",
+      "weight": 1.0,
+      "edge_type": "can_invade"
     },
     {
       "source": "cancer cells",
       "target": "distant parts of the body",
-      "relation": "metastasize",
-      "weight": 1.0
+      "relation": "can_metastasize_to",
+      "weight": 1.0,
+      "edge_type": "can_metastasize_to"
     },
     {
       "source": "early detection",
       "target": "patient outcomes",
       "relation": "improves",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "improves"
     },
     {
       "source": "treatment",
       "target": "patient outcomes",
       "relation": "improves",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "improves"
     },
     {
-      "source": "surgery",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "surgery",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
-      "source": "chemotherapy",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "chemotherapy",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
-      "source": "radiation therapy",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "radiation therapy",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
-      "source": "immunotherapy",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "immunotherapy",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
-      "source": "targeted therapy",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "targeted therapy",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
-      "source": "hormone therapy",
-      "target": "treatment option",
-      "relation": "is_a",
-      "weight": 1.0
+      "source": "treatment options",
+      "target": "hormone therapy",
+      "relation": "include",
+      "weight": 1.0,
+      "edge_type": "include"
     },
     {
       "source": "cancer screening tests",
       "target": "cancer",
-      "relation": "detect",
-      "weight": 1.0
+      "relation": "help_detect",
+      "weight": 1.0,
+      "edge_type": "help_detect"
     },
     {
       "source": "mammograms",
       "target": "breast cancer",
-      "relation": "detect",
-      "weight": 1.0
+      "relation": "used_for",
+      "weight": 1.0,
+      "edge_type": "used_for"
     },
     {
       "source": "colonoscopies",
       "target": "colorectal cancer",
-      "relation": "detect",
-      "weight": 1.0
+      "relation": "used_for",
+      "weight": 1.0,
+      "edge_type": "used_for"
     },
     {
       "source": "PSA tests",
       "target": "prostate cancer",
-      "relation": "detect",
-      "weight": 1.0
+      "relation": "used_for",
+      "weight": 1.0,
+      "edge_type": "used_for"
     },
     {
       "source": "genetic testing",
       "target": "inherited cancer risk",
-      "relation": "identifies",
-      "weight": 1.0
+      "relation": "can_identify",
+      "weight": 1.0,
+      "edge_type": "can_identify"
     },
     {
-      "source": "smoking",
+      "source": "lifestyle factors",
       "target": "cancer risk",
-      "relation": "influences",
-      "weight": 1.0
-    },
-    {
-      "source": "diet",
-      "target": "cancer risk",
-      "relation": "influences",
-      "weight": 1.0
-    },
-    {
-      "source": "exercise",
-      "target": "cancer risk",
-      "relation": "influences",
-      "weight": 1.0
+      "relation": "influence",
+      "weight": 1.0,
+      "edge_type": "influence"
     },
     {
       "source": "oncology",
       "target": "branch of medicine",
       "relation": "is_a",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "is_a"
     },
     {
       "source": "oncology",
       "target": "cancer diagnosis",
       "relation": "deals_with",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "deals_with"
     },
     {
       "source": "oncology",
       "target": "cancer treatment",
       "relation": "deals_with",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "deals_with"
     },
     {
       "source": "oncology",
       "target": "cancer research",
       "relation": "deals_with",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "deals_with"
     },
     {
       "source": "medical oncologists",
       "target": "chemotherapy",
       "relation": "specialize_in",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "specialize_in"
     },
     {
       "source": "medical oncologists",
       "target": "immunotherapy",
       "relation": "specialize_in",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "specialize_in"
     },
     {
       "source": "surgical oncologists",
       "target": "cancer-related surgeries",
       "relation": "perform",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "perform"
     },
     {
       "source": "radiation oncologists",
       "target": "radiation therapy",
       "relation": "administer",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "administer"
     },
     {
       "source": "palliative care",
       "target": "improving quality of life",
       "relation": "focuses_on",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "focuses_on"
     },
     {
       "source": "supportive care",
       "target": "symptoms",
       "relation": "addresses",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "addresses"
     },
     {
       "source": "supportive care",
       "target": "side effects",
       "relation": "addresses",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "addresses"
     },
     {
       "source": "hospice care",
       "target": "end-of-life support",
       "relation": "provides",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "provides"
     },
     {
       "source": "mental health support",
       "target": "cancer patients",
-      "relation": "is_crucial_for",
-      "weight": 1.0
+      "relation": "crucial_for",
+      "weight": 1.0,
+      "edge_type": "crucial_for"
     },
     {
       "source": "mental health support",
       "target": "families",
-      "relation": "is_crucial_for",
-      "weight": 1.0
+      "relation": "crucial_for",
+      "weight": 1.0,
+      "edge_type": "crucial_for"
     },
     {
       "source": "research",
       "target": "clinical trials",
       "relation": "includes",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "includes"
     },
     {
       "source": "research",
       "target": "biomarker discovery",
       "relation": "includes",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "includes"
     },
     {
       "source": "research",
       "target": "drug development",
       "relation": "includes",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "includes"
     },
     {
       "source": "precision medicine",
       "target": "treatment",
       "relation": "tailors",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "tailors"
     },
     {
       "source": "precision medicine",
-      "target": "genetic profiles",
+      "target": "individual genetic profiles",
       "relation": "based_on",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "based_on"
     },
     {
       "source": "immunotherapy",
       "target": "immune system",
       "relation": "harnesses",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "harnesses"
     },
     {
       "source": "immunotherapy",
       "target": "cancer",
-      "relation": "fights",
-      "weight": 1.0
+      "relation": "used_to_fight",
+      "weight": 1.0,
+      "edge_type": "used_to_fight"
     },
     {
       "source": "CAR-T cell therapy",
       "target": "emerging treatment",
-      "relation": "is_a",
-      "weight": 1.0
+      "relation": "is_an",
+      "weight": 1.0,
+      "edge_type": "is_an"
     },
     {
       "source": "CAR-T cell therapy",
-      "target": "blood cancers",
+      "target": "certain blood cancers",
+      "relation": "used_for",
+      "weight": 1.0,
+      "edge_type": "used_for"
+    },
+    {
+      "source": "surgery",
+      "target": "cancer",
       "relation": "treats",
-      "weight": 1.0
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
-      "source": "cancer",
-      "target": "uncontrolled growth",
-      "relation": "causes",
-      "weight": 1.0
+      "source": "chemotherapy",
+      "target": "cancer",
+      "relation": "treats",
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
-      "source": "cancer",
-      "target": "spread of abnormal cells",
-      "relation": "causes",
-      "weight": 1.0
-    },
-    {
-      "source": "screening tests",
-      "target": "symptoms",
-      "relation": "precede",
-      "weight": 1.0
-    },
-    {
-      "source": "oncologists",
-      "target": "cancer treatment",
-      "relation": "specialize_in",
-      "weight": 1.0
-    },
-    {
-      "source": "palliative care",
-      "target": "cancer care",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "supportive care",
-      "target": "cancer care",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "hospice care",
-      "target": "cancer care",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "clinical trials",
-      "target": "research",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "biomarker discovery",
-      "target": "research",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "drug development",
-      "target": "research",
-      "relation": "part_of",
-      "weight": 1.0
-    },
-    {
-      "source": "precision medicine",
-      "target": "personalized treatment",
-      "relation": "part_of",
-      "weight": 1.0
+      "source": "radiation therapy",
+      "target": "cancer",
+      "relation": "treats",
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
       "source": "immunotherapy",
-      "target": "cancer treatment",
-      "relation": "part_of",
-      "weight": 1.0
+      "target": "cancer",
+      "relation": "treats",
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
-      "source": "CAR-T cell therapy",
-      "target": "cancer treatment",
-      "relation": "part_of",
-      "weight": 1.0
+      "source": "targeted therapy",
+      "target": "cancer",
+      "relation": "treats",
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
-      "source": "early detection",
-      "target": "treatment",
-      "relation": "precedes",
-      "weight": 1.0
-    },
-    {
-      "source": "treatment",
-      "target": "early detection",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "oncology",
-      "target": "medical oncology",
-      "relation": "contains",
-      "weight": 1.0
-    },
-    {
-      "source": "oncology",
-      "target": "surgical oncology",
-      "relation": "contains",
-      "weight": 1.0
-    },
-    {
-      "source": "oncology",
-      "target": "radiation oncology",
-      "relation": "contains",
-      "weight": 1.0
-    },
-    {
-      "source": "palliative care",
-      "target": "quality of life",
-      "relation": "improves",
-      "weight": 1.0
-    },
-    {
-      "source": "supportive care",
-      "target": "quality of life",
-      "relation": "improves",
-      "weight": 1.0
-    },
-    {
-      "source": "hospice care",
-      "target": "quality of life",
-      "relation": "improves",
-      "weight": 1.0
-    },
-    {
-      "source": "mental health support",
-      "target": "quality of life",
-      "relation": "improves",
-      "weight": 1.0
-    },
-    {
-      "source": "clinical trials",
-      "target": "new treatments",
-      "relation": "enable",
-      "weight": 1.0
-    },
-    {
-      "source": "biomarker discovery",
-      "target": "targeted therapy",
-      "relation": "enables",
-      "weight": 1.0
-    },
-    {
-      "source": "drug development",
-      "target": "new treatments",
-      "relation": "enables",
-      "weight": 1.0
-    },
-    {
-      "source": "precision medicine",
-      "target": "personalized treatment",
-      "relation": "enables",
-      "weight": 1.0
-    },
-    {
-      "source": "immunotherapy",
-      "target": "immune response",
-      "relation": "enables",
-      "weight": 1.0
-    },
-    {
-      "source": "CAR-T cell therapy",
-      "target": "targeted attack",
-      "relation": "enables",
-      "weight": 1.0
+      "source": "hormone therapy",
+      "target": "cancer",
+      "relation": "treats",
+      "weight": 1.0,
+      "edge_type": "treats"
     },
     {
       "source": "smoking",
-      "target": "increased cancer risk",
-      "relation": "causes",
-      "weight": 1.0
+      "target": "cancer risk",
+      "relation": "increases",
+      "weight": 1.0,
+      "edge_type": "increases"
     },
     {
       "source": "diet",
-      "target": "increased cancer risk",
-      "relation": "causes",
-      "weight": 1.0
-    },
-    {
-      "source": "exercise",
-      "target": "increased cancer risk",
-      "relation": "prevents",
-      "weight": 1.0
-    },
-    {
-      "source": "genetic testing",
-      "target": "risk assessment",
-      "relation": "precedes",
-      "weight": 1.0
-    },
-    {
-      "source": "screening tests",
-      "target": "diagnosis",
-      "relation": "precede",
-      "weight": 1.0
-    },
-    {
-      "source": "oncologists",
-      "target": "cancer treatment",
-      "relation": "enable",
-      "weight": 1.0
-    },
-    {
-      "source": "oncologists",
-      "target": "patient care",
-      "relation": "enable",
-      "weight": 1.0
-    },
-    {
-      "source": "palliative care",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "supportive care",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "hospice care",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "mental health support",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "clinical trials",
-      "target": "research",
-      "relation": "follow",
-      "weight": 1.0
-    },
-    {
-      "source": "biomarker discovery",
-      "target": "research",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "drug development",
-      "target": "research",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "precision medicine",
-      "target": "genetic profiling",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "immunotherapy",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
-    },
-    {
-      "source": "CAR-T cell therapy",
-      "target": "diagnosis",
-      "relation": "follows",
-      "weight": 1.0
+      "target": "cancer risk",
+      "relation": "influences",
+      "weight": 1.0,
+      "edge_type": "influences"
     }
   ]
 }

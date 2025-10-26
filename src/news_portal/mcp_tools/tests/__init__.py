@@ -8,7 +8,6 @@ Test files for the FastMCP Domain Intelligence Server.
 Available Tests:
 - fastmcp_client.py: Complete test suite for all FastMCP tools
 - test_glossary_builder.py: Comprehensive glossary builder tests
-- test_knowledge_graph_builder.py: Knowledge graph builder tests
 - test_keyword_extractor.py: Keyword extractor tests
 - view_generated_images.py: Cover image generation and viewing demo
 """

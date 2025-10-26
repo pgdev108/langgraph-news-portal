@@ -206,7 +206,8 @@ class KnowledgeGraphBuilderTool(BaseMCPTool):
                         "source": edge.source,
                         "target": edge.target,
                         "relation": edge.relation,
-                        "weight": edge.weight
+                        "weight": edge.weight,
+                        "edge_type": edge.relation  # For backward compatibility
                     }
                     for edge in kg.edges
                 ]
