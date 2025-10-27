@@ -48,3 +48,4 @@ back-up/
 *.tmp
 *.swp
 *.swo
+generated_images/
