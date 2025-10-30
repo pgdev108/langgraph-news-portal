@@ -49,3 +49,4 @@ back-up/
 *.swp
 *.swo
 generated_images/
+*.png
